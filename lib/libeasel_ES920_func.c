@@ -31,6 +31,8 @@
 #include <time.h>
 #include <sys/time.h>
 #include <math.h>
+#include <pthread.h>
+
 #include "libeasel_ES920.h"
 #include "serialfunc.h"
 
@@ -796,6 +798,7 @@ int easel_ES920_init(char* PortName,int iBaudrate){
 	int iParity = 0;
 	int iFlow=0;
 	int iPort;
+	pthread_t tid;
 
 	iPort = Serial_PortOpen_Full(
 		PortName,
@@ -814,6 +817,16 @@ int easel_ES920_init(char* PortName,int iBaudrate){
 
 	param.SerialPort = iPort;
 	param.SerialWait = 50000;
+
+	// 内部 ReadThread 起動
+	if( param.read_id == 0 ){
+		if( !pthread_create(&tid, NULL, RecvPollingThread,NULL) ){
+			param.read_id = tid;
+		}
+	}
+
+	//Circle Q 初期化
+	CIRCLEQ_INIT(&es920_ring_buffer_head);
 
 	return 0;
 }
@@ -901,17 +914,22 @@ int SendTeregram(unsigned char *buf, unsigned int dst_id, unsigned int dst_addr 
 			address_offset = 0;
 		}
 
-		//index
-		ES920_PacketData[address_offset + 0] = (current_index / 16) + '0';
-		ES920_PacketData[address_offset + 1] = (current_index % 16) + '0';
-		ES920_PacketData[address_offset + 2] = (total_index / 16) + '0';
-		ES920_PacketData[address_offset + 3] = (total_index % 16) + '0';
+		// Send type
+		ES920_PacketData[address_offset + 0] = param.app_comm_mode + '0';
 
-		memcpy(&ES920_PacketData[address_offset + 4], &send_buf[count], length);
+		// Reserved ES920_PacketData[address_offset + 1]
+		ES920_PacketData[address_offset + 1] = '0';
+		//index
+		ES920_PacketData[address_offset + 2] = (current_index / 16) + '0';
+		ES920_PacketData[address_offset + 3] = (current_index % 16) + '0';
+		ES920_PacketData[address_offset + 4] = (total_index / 16) + '0';
+		ES920_PacketData[address_offset + 5] = (total_index % 16) + '0';
+
+		memcpy(&ES920_PacketData[address_offset + 5], &send_buf[count], length);
 
 		//delimiter
-		ES920_PacketData[length + address_offset + 4] = '\r';
-		ES920_PacketData[length + address_offset + 5] = '\n';
+		ES920_PacketData[length + address_offset + 5] = '\r';
+		ES920_PacketData[length + address_offset + 6] = '\n';
 
 		success_length = Serial_PutString(param.SerialPort, ES920_PacketData, ( (length + address_offset +  6)*sizeof(unsigned char) ) );
 
@@ -963,27 +981,9 @@ BYTE _calc_Hex2Bcd( BYTE hex ){
 
 }
 
+EASEL920_TEMPBUFFER temp_recv_buf;
 
-
-
-typedef struct _easel_received_temp_buffer{
-	int length;
-	int state;		// '\r' ...1, '\n' ... 2, otherwize ... 0
-	unsigned char data[124]; // 2message
-}EASEL_RECV_TEMP_BUFFER, *PEASEL_RECV_TEMP_BUFFER;
-
-
-typedef struct _easel_received_ring_buffer{
-	int rssi;
-	unsigned int src_id;
-	unsigned int src_addr;
-	unsigned char data[50];
-}EASEL_RECV_RING_BUFFER, *PEASEL_RECV_RING_BUFFER;
-
-
-EASEL_RECV_TEMP_BUFFER temp_recv_buf;
-
-void RecvPollingThread()
+void *RecvPollingThread(void *arg)
 {
 	int iRet=0;
 
@@ -996,11 +996,8 @@ void RecvPollingThread()
 	int header_length[2] ={0};
 
 	unsigned char temp_char;
-	int temp_rssi;
-	unsigned int temp_src_id;
-	unsigned int temp_src_addr;
 
-	PEASEL_RECV_RING_BUFFER new_buffer;
+	PEASEL920_READBUFFER new_buffer;
 
 	//get the data length(header + response data)
 	memset(&str_pwr[0], 0x00, 4 );
@@ -1008,47 +1005,46 @@ void RecvPollingThread()
 	memset(&str_addr[0], 0x00, 4 );
 
 	/* */
-	Serial_Get_In_Buffer( param.SerialPort, &iTempLen );
+	while( 1 ){
 
-	// set header_length
-	if( param.rssi == EASEL_ES920_RSSI_ON ) header_length[0] = 4;
-	if( param.rcvid == EASEL_ES920_RCVID_ON ) header_length[1] = 8;
+		// set header_length
+		if( param.rssi == EASEL_ES920_RSSI_ON ) header_length[0] = 4;
+		if( param.rcvid == EASEL_ES920_RCVID_ON ) header_length[1] = 8;
 
-	Serial_Get_In_Buffer( param.SerialPort, &readlen );
-	if( readlen == 0 ) return;
+		Serial_Get_In_Buffer( param.SerialPort, &readlen );
 
-	for(count=0;count < readlen;count++){
-		temp_char = Serial_GetChar(param.SerialPort);
+		if( readlen == 0 ) continue;
 
-		switch( temp_char ){
-		case '\r':
-			temp_recv_buf.state = 1;
-			break;
-		case '\n':
-			temp_recv_buf.state = 2;
-			break;
-			temp_recv_buf.data[temp_recv_buf.length + count] = temp_char;
-			temp_recv_buf.length += 1;
-			break;
+		for(count = 0;count < readlen;count++){
+			temp_char = Serial_GetChar(param.SerialPort);
+
+			switch( temp_char ){
+			case '\r':
+				temp_recv_buf.state = 1;
+				break;
+			case '\n':
+				temp_recv_buf.state = 2;
+				break;
+				temp_recv_buf.data[temp_recv_buf.length + count] = temp_char;
+				temp_recv_buf.length += 1;
+				break;
+			}
+
+			if( temp_recv_buf.length + count < 50 ){
+				temp_recv_buf.data[temp_recv_buf.length + count] = Serial_GetChar(param.SerialPort);
+			}
+			else{
+
+			}
 		}
 
 
-
-		if( temp_recv_buf.length + count < 50 ){
-			temp_recv_buf.data[temp_recv_buf.length + count] = Serial_GetChar(param.SerialPort);
-		}
-		else{
-
-		}
-	}
-
-
-	if( temp_recv_buf.state == 2 ){
-		DbgPrintRecvTelegram("===========RecvTele=======================\n");
-		DbgPrintRecvTelegram("Data\n");
-		for(count=0;count < temp_recv_buf.length;count++)
-			DbgPrintRecvTelegram("%02x ",Data[count]);
-		DbgPrintRecvTelegram("\n");
+		if( temp_recv_buf.state == 2 ){
+			DbgPrintRecvTelegram("===========RecvTele=======================\n");
+			DbgPrintRecvTelegram("Data\n");
+			for(count=0;count < temp_recv_buf.length;count++)
+				DbgPrintRecvTelegram("%02x ",Data[count]);
+			DbgPrintRecvTelegram("\n");
 
 	/*gettimeofday(&myTime,NULL);
 	time_st = localtime(&myTime.tv_sec);
@@ -1060,45 +1056,48 @@ void RecvPollingThread()
       );
 	 */
 
-		if(!strcmp((char *)temp_recv_buf.data,"OK")) return;
+			if(!strcmp((char *)temp_recv_buf.data,"OK")) return;
 
-		DbgPrintRecvTelegram("DATA:");
+			DbgPrintRecvTelegram("DATA:");
 
 
-		for( count = 0; count < header_length[0] + header_length[1]; count ++ ){
+			for( count = 0; count < header_length[0] + header_length[1]; count ++ ){
 
-			if( count < header_length[0] ){
-				//rx_pwr
-				str_pwr[count] = temp_recv_buf.data[count];
-			}else if( count < header_length[0] + 4 ){
-				// id
-				str_id[count - header_length[0]] = temp_recv_buf.data[count];
-			}else if( count < header_length[0] + header_length[1] ){
-				// addr
-				str_addr[count - header_length[0] - 4] = temp_recv_buf.data[count];
+				if( count < header_length[0] ){
+					//rx_pwr
+					str_pwr[count] = temp_recv_buf.data[count];
+				}else if( count < header_length[0] + 4 ){
+					// id
+					str_id[count - header_length[0]] = temp_recv_buf.data[count];
+				}else if( count < header_length[0] + header_length[1] ){
+					// addr
+					str_addr[count - header_length[0] - 4] = temp_recv_buf.data[count];
+				}
+			}
+
+			// ここで新しいバッファ作成
+			new_buffer = ( PEASEL920_READBUFFER ) malloc(sizeof(EASEL920_READBUFFER));
+
+			if( new_buffer != ( PEASEL920_READBUFFER )NULL ){
+				new_buffer->rssi = _easel_es920_StrHex2Num(str_pwr);
+				new_buffer->src_id = _easel_es920_StrHex2Num(str_id);
+				new_buffer->src_addr = _easel_es920_StrHex2Num(str_addr);
+
+				memset(&new_buffer->data[0], 0x00, 50 );
+
+				for(count = 0; count < (temp_recv_buf.length - header_length[0] - header_length[1] ); count ++ ){
+					new_buffer->data[count] = temp_recv_buf.data[count];
+				}
+
+				//リングバッファの末尾に追加
+				CIRCLEQ_INSERT_TAIL(&es920_ring_buffer_head, new_buffer, entry);
+
+				//表示
+				DbgPrintRecvTelegram("<RecvTelegram>Data %s buf %s rx_pwr %d src_id %d src_addr %d\n",
+					new_buffer->data[count],buf,new_buffer->rssi, new_buffer->src_id, new_buffer->src_addr );
 			}
 		}
-
-		// ここで新しいバッファ作成
-		new_buffer = (PEASEL_RECV_RING_BUFFER ) malloc(sizeof(EASEL_RECV_RING_BUFFER));
-
-		new_buffer->rssi = _easel_es920_StrHex2Num(str_pwr);
-		new_buffer->src_id = _easel_es920_StrHex2Num(str_id);
-		new_buffer->src_addr = _easel_es920_StrHex2Num(str_addr);
-
-		memset(&new_buffer->data[0], 0x00, 50 );
-
-		for(count = 0; count < (temp_recv_buf.length - header_length[0] - header_length[1] ); count ++ ){
-			new_buffer->data[count] = temp_recv_buf.data[count];
-		}
-
-		//リングバッファ追加
-
-
-		//表示
-		DbgPrintRecvTelegram("<RecvTelegram>Data %s buf %s rx_pwr %d src_id %d src_addr %d\n",
-				new_buffer->data[count],buf,new_buffer->rssi, new_buffer->src_id, new_buffer->src_addr );
-
+		usleep(100 * 1000);
 	}
 
 	return;
@@ -1117,7 +1116,7 @@ void RecvPollingThread()
 	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
 **/
 //int RecvTelegram(unsigned char *buf)
-int RecvTelegram(unsigned char *buf, unsigned int *rx_pwr, int *src_id, int *src_addr )
+int RecvTelegram(unsigned char *buf, unsigned int *rx_pwr, int src_id, int src_addr )
 {
 	int iRet=0;
 	unsigned char Data[62];
@@ -1323,6 +1322,12 @@ int easel_ES920_exit(void)
 	if(param.SerialPort == 0) return 0;
 
 	Serial_PortClose(param.SerialPort);
+
+	// 内部 ReadThread 強制切離し
+	if( param.read_id != 0 ){
+		pthread_detach(param.read_id);
+	}
+
 
 	return 0;
 }

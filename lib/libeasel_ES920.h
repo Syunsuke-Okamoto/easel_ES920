@@ -10,6 +10,7 @@
 #define __EASEL_ES920__
 
 #include <math.h>	// used function log2l
+#include <pthread.h> // used pthread
 #include <sys/queue.h> // used circle Q macros
 
 // BOOL define
@@ -75,12 +76,21 @@ typedef unsigned long DWORD,*LPDWORD;
 #define EASEL_ES920_COMMUNICATION_ASCII	1	///<  ASCII
 #define EASEL_ES920_COMMUNICATION_BINARY	2	///<  Binary
 
+typedef struct _easel_received_temp_buffer{
+	int length;
+	int state;		// '\r' ...1, '\n' ... 2, otherwize ... 0
+	unsigned char data[124]; // 2message
+}EASEL920_TEMPBUFFER, *PEASEL920_TEMPBUFFER;
+
 typedef struct es920_ring_buffer{
 	CIRCLEQ_ENTRY(es920_ring_buffer) entry;
-	unsigned char *buffer;
+	int rssi;
+	unsigned int src_id;
+	unsigned int src_addr;
+	unsigned char data[50];
 }EASEL920_READBUFFER, *PEASEL920_READBUFFER;
 
-CIRCLEQ_HEAD(es920_ring_buffer);
+CIRCLEQ_HEAD(_es920_ring_buffer_head, es920_ring_buffer) es920_ring_buffer_head;
 
 typedef struct __easelES920_param{
 	int node;	///< node
@@ -108,7 +118,7 @@ typedef struct __easelES920_param{
 	// Application Parameter
 	int app_comm_mode;	///< Communicatoin Mode ( 1: Ascii, 2: Binary )
 
-	struct c
+	pthread_t read_id;
 
 } EASEL920PARAM, *PEASEL920PARAM;
 
@@ -159,6 +169,8 @@ int SendTelegram(unsigned char *buf, unsigned int dst_id, unsigned int dst_addr 
 int RecvTelegram(unsigned char *buf, unsigned int *rx_pwr, int *src_id, int *src_addr );
 int RecvRS232C(unsigned char *buf);
 int SendRS232C(unsigned char *buf);
+
+void *RecvPollingThread(void *arg);
 
 // wrapper function
 extern int easel_ES920_set_wireless_default();
