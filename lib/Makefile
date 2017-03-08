@@ -1,7 +1,7 @@
 CC=${CROSS_COMPILE}gcc
 CFLAGS= -g -Wall
 TARGET=libeasel_ES920.so
-VERSION=0.0.1
+VERSION=0.1.0
 TARGET_ROOTFS := ${CPS_SDK_INSTALL_FULLDIR}/${CPS_SDK_ROOTFS}
 
 ifeq ($(CC),gcc)
@@ -17,7 +17,7 @@ all:${TARGET}.${VERSION}
 ${TARGET}.${VERSION}:libeasel_ES920_func.o libeasel_ES920_wrap.o libeasel_ES920_test_rs232c.o	
 
 libeasel_ES920_func.o:
-	${CC} libeasel_ES920_func.c -c -fPIC -o libeasel_ES920_func.o ${INCLUDEPATH}
+	${CC} libeasel_ES920_func.c -c -fPIC -o libeasel_ES920_func.o ${INCLUDEPATH} -lm
 	
 libeasel_ES920_wrap.o: 
 	${CC} libeasel_ES920_wrap.c -c -fPIC -o libeasel_ES920_wrap.o ${INCLUDEPATH}
@@ -26,7 +26,7 @@ libeasel_ES920_test_rs232c.o:
 	${CC} libeasel_ES920_test_rs232c.c -c -fPIC -o libeasel_ES920_test_rs232c.o ${INCLUDEPATH}
 
 ${TARGET}.${VERSION}: 
-	${CC} -shared -O2 -Wl,-soname,${TARGET} -o ${TARGET}.${VERSION} libeasel_ES920_func.o libeasel_ES920_wrap.o libeasel_ES920_test_rs232c.o
+	${CC} -shared -O2 -Wl,-soname,${TARGET} -o ${TARGET}.${VERSION} libeasel_ES920_func.o libeasel_ES920_wrap.o libeasel_ES920_test_rs232c.o -lm
 
 install:
 	cp ${TARGET}.${VERSION} ${INSTALL_DIR}

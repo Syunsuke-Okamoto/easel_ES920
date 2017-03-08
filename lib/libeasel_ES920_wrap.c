@@ -25,30 +25,33 @@
 // wrapper
 
 
-/*
+/***
 default setting function
-	@par Default Parameter : 100kBps, 60channel, 1mW , Send Level -85dBm, Receive Level -95dBm, Send Time 130(usec), Send Num 6, Ack Retry Num 4, Ack Time 100(usec)
+	@~English
+	@brief EASEL 920MHz Default Module Parameter Set
+	@par Default Parameter : 125kHz, 1channel, PanID : 1 , Send Level -85dBm, Receive Level -95dBm, Send Time 130(usec), Send Num 6, Ack Retry Num 4, Ack Time 100(usec)
 	@~Japanese
-	@brief CONEXIO 920MHz　Module の 無線  通常設定関数
+	@brief EASEL 920MHz　Module の 無線  通常設定関数
 	@par パラメータ : 100kBps, 60チャネル, 1mW , 送信レベル -85dBm, 受信レベル -95dBm, 送信時間 130(usec), 送信回数 6回, ACKリトライ回数 4回, ACKリトライ時間 100 (usec)
-*/
+***/
 
 int easel_ES920_set_wireless_default(void)
 {
+
 	return easel_ES920_set_wireless(
-			EASEL_ES920_NODE_END, 	
-			EASEL_ES920_BW_125K, 	
+			EASEL_ES920_NODE_ENDDEVICE,
+			EASEL_ES920_BANDWIDTH_125K,
 			EASEL_ES920_SF7,	
 			1,			//Channel: 1
 			1,			//Panid : 0x0001
-			0,			//Ownid : 0x0001
-			1,			//Dstid : 0x0000
+			0,			//OwnAddr : 0x0001
+			1,			//DstAddr : 0x0000
 			EASEL_ES920_ACK_ON,  	 
-			3,			//Rettry: 3
-			EASEL_ES920_TRASMOD_PAY,
+			3,			//Retry: 3
+			EASEL_ES920_TRASMOD_PAYLOAD,
 			EASEL_ES920_RCVID_ON,	
 			EASEL_ES920_RSSI_ON,
-			EASEL_ES920_MODE_OPE,	
+			EASEL_ES920_MODE_OPERATION,
 			EASEL_ES920_BAUD_115200,
 			EASEL_ES920_SLEEP_OFF, 
 			50,			//Sleep time: 50
@@ -141,5 +144,29 @@ int easel_ES920_set_wireless( int node, int bw, int sf, int ch, int panid, int o
 
 	return 0;
 }	
+
+int easel_ES920_set_wireless_by_structure( EASEL920PARAM es920param )
+{
+
+	return easel_ES920_set_wireless(
+			es920param.node,
+			es920param.bw,
+			es920param.sf,
+			es920param.ch,
+			es920param.panid,
+			es920param.ownid,
+			es920param.dstid,
+			es920param.ack,
+			es920param.retry,
+			es920param.transmod,
+			es920param.rcvid,
+			es920param.rssi,
+			es920param.mode,
+			es920param.baudrate,
+			es920param.sleep,
+			es920param.sleeptime,
+			es920param.power
+			);
+}
 
 
