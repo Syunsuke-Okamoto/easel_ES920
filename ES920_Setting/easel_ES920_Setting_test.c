@@ -1,5 +1,5 @@
 /******************************************************************************/
-// easel_ES920_Send_test.c - easel_ES920_Send_test file
+// easel_ES920_Setting_test.c - easel_ES920_Setting_test file
 /******************************************************************************/
 
 /*
@@ -45,6 +45,9 @@ static volatile int sig_cnt = 0;
 
 // プロトタイプ宣言
 void handler(int);
+void easel_ES920_newline_remove(char *);
+int easel_ES920_csv_write(char *, unsigned int *, char *, char *);
+
 
 int main(int argc, char **argv)
 {
@@ -70,8 +73,8 @@ int main(int argc, char **argv)
 	int qsf=EASEL_ES920_SPREADINGFACTOR_7;
 	int qch=1;
 	int qpan=1;
-	int qown=1;
-	int qdst=0;
+	int qown=0;
+	int qdst=1;
 	int qack=EASEL_ES920_ACK_ON;
 	int qret=0;
 	int qbaud=EASEL_ES920_BAUD_115200;
@@ -326,55 +329,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	// 動作モード要求
-	iRet = RunRequest();
-	if(iRet){
-		printf("CAN'T MOVE ON OPERATION MODE\n");
-		iRet = easel_ES920_exit();
-		return 0;
-	}
-
-	printf("----- OPERATION MODE ------\n");
-
-	// シグナルハンドラ設定
-	if (SIG_ERR == signal(SIGINT, handler)) {
-		printf("failed tio set signal handler\n");
-		return 1;
-	}
-
-	char sendMsg[512]="1234567890abcdefghijklmnopqrstuvwxyz";
-
-	// 初回の受信側の準備待ち
-	int count = 0;
-	while(sig_cnt == 0){
-
-		//printf("1\n");
-		//DATA FROM EASEL to
-		//memset(cRecv,'\0',sizeof(cRecv));
-		//iRet = RecvTelegram(cRecv);
-		//if(iRet>0){
-		//	usleep(100);
-		//	SendRS232C(cRecv);
-		//}
-
-		//printf("2\n");
-		//usleep(100);
-		//memset(cRecv,'\0',sizeof(cRecv));
-
-
-		//DATA FROM RS232C TO EASLE
-		//iRet = RecvRS232C(cRecv);
-		//if(iRet>0){
-			//usleep(100);
-			//iRet = SendTeregramPayload(sendMsg);
-			iRet = SendTeregram(sendMsg,0, 0);
-		//}
-
-		//printf("3\n");
-		count++;
-		//memset(cRecv,'\0',sizeof(cRecv));
-		sleep(1);
-	}
+	sleep(1);
 
 	easel_ES920_exit();
 	printf("ES920 Port Closed...\n");
@@ -384,8 +339,3 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-// シグナルハンドラ
-void handler(int sig) {
-	printf("catch signal %d\n", sig);
-	sig_cnt++;
-}

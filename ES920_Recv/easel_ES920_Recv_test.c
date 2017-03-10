@@ -24,6 +24,7 @@
 -- THE SOFTWARE.
 --
 */
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,19 +41,22 @@
 
 #define APP_VERSION "1.0.0"
 
+static volatile int sig_cnt = 0;
+
 // プロトタイプ宣言
+void handler(int);
 void easel_ES920_newline_remove(char *);
 int easel_ES920_csv_write(char *, unsigned int *, char *, char *);
+
 
 int main(int argc, char **argv)
 {
 	int iRet;
 
 	char DevName1[26] = "/dev/ttyO3";
-	char DevName2[26] = "/dev/ttyO5";
 	char cMsg[512] = "1234567890abcdefghijklmnopqrstuvwxyz";
 	unsigned char cRecv[50] = {0};
-	int i = 2;
+	int i = 1;
 	int ret = 0;
 	int sig = 0;
 	int cnt = 1;
@@ -61,23 +65,32 @@ int main(int argc, char **argv)
 	long iCnt = 1;
 	long Retrycnt = 20;
 	int iWait = 700;
-	int qnode = 1;
-	char *qbw = "125k";
-	int qsf = 7;
-	int qch = 1;
-	unsigned int qpan = 0x01;
-	unsigned int qown = 0x01;
-	unsigned int qdst = 0x00;
-	int qack = 1;
-	int qret = 3;
-	int qbaud = 115200;
-	int qslep = 1;
-	int qsleptm = 50;
-	int qpwr = 13;
+	int ibaudrate = 115200;
 
+	// 920MHz Setting String
+	char qnode[12]="";
+	char qbw[6]="";
+	int qsf=EASEL_ES920_SPREADINGFACTOR_7;
+	int qch=1;
+	int qpan=1;
+	int qown=0;
+	int qdst=1;
+	int qack=EASEL_ES920_ACK_ON;
+	int qret=0;
+	int qbaud=EASEL_ES920_BAUD_115200;
+	int qslep=EASEL_ES920_SLEEP_OFF;
+	int qsleptm=50;
+	int qpwr=13;
+
+	// 920MHz Setting Int
+	int inode=EASEL_ES920_NODE_ENDDEVICE;
+	int ibw=EASEL_ES920_BANDWIDTH_125K;
+
+	// マルチホップ対応
 	int src_id = 0;
 	int src_addr = 0;
 
+	// CSV設定
 	char *fname = "/home/conprosys/niimi/ES920LR.csv";
 	unsigned int  rx_pwr = 0;
 	char str = '0';
@@ -85,12 +98,11 @@ int main(int argc, char **argv)
 
 	BYTE multi64bitAddr[8]={0};
 
-	if( argc >= 3 ){
+	//if( argc >= 2 ){
 
-		strcpy( DevName1, argv[1] );
-		strcpy( DevName2, argv[2] );
+	//	strcpy( DevName1, argv[1] );
 
-		if( argc >= 4 ){
+		if( argc >= 2 ){
 
 			// 引数解析
 			while(i < argc){
@@ -99,29 +111,27 @@ int main(int argc, char **argv)
 				//help
 				if(strncmp(argv[i], "--help", strlen("--help")) == 0 ){
 					printf("Version : %s \n", APP_VERSION );
-					printf("easel_ES920_through test [device1] [device2] [options]\n");
+					printf("easel_ES920_through test [options]\n");
 					printf("options:\n");
 					printf(" -b[baudrate]\n");
 					printf(" -c[Count]\n");
 					printf(" -r[Retry Count]\n");
 					printf(" -d[Data]\n");
+					printf(" -D[device node]\n");
 					printf(" -w[Wait(ms)]\n");
-					printf(" -h[hop mode]\n");
 					printf(" -q[920MHz Option]\n");
-					printf("    -qa[node]\n");
-					printf("    -qb[bandwidth]\n");
-					printf("    -qc[sf]\n");
-					printf("    -qd[channel]\n");
-					printf("    -qe[panid]\n");
-					printf("    -qf[ownid]\n");
-					printf("    -qg[dstid]\n");
-					printf("    -ql[ack]\n");
-					printf("    -qm[retly]\n");
-					printf("    -qr[baudrate]\n");
-					printf("    -qs[sleep]\n");
-					printf("    -qt[sleeptime]\n");
-					printf("    -qu[power]\n");
-					printf("    -qu[power]\n");
+					printf("    -qn=[node]\n");
+					printf("    -qbw=[bandwidth]\n");
+					printf("    -qsf=[sf]\n");
+					printf("    -qc=[channel]\n");
+					printf("    -qpid=[panid]\n");
+					printf("    -qoid=[ownid]\n");
+					printf("    -qdid=[dstid]\n");
+					printf("    -qa=[ack]\n");
+					printf("    -qr=[retly]\n");
+					printf("    -qsl=[sleep]\n");
+					printf("    -qst=[sleeptime]\n");
+					printf("    -qpwr=[power]\n");
 					printf("Usage:\n");
 					printf("Antenna type internal [0] external [1]\n");
 					printf("infinite loop [-1]\n");
@@ -142,6 +152,13 @@ int main(int argc, char **argv)
 					}
 				}
 
+				// baudrate
+				if(strncmp(argv[i], "-b", strlen("-b")) == 0){
+					if(sscanf(argv[i], "-b%d", &ibaudrate) != 1){
+						ret = -1;
+					}
+				}
+
 				// Wait
 				if(strncmp(argv[i], "-w", strlen("-w")) == 0){
 					if(sscanf(argv[i], "-w%d", &iWait) != 1){
@@ -156,119 +173,111 @@ int main(int argc, char **argv)
 					}
 				}
 
+				// Device
+				if(strncmp(argv[i], "-D", strlen("-D")) == 0){
+				 	if(strlen(argv[i]) > 2){
+						strcpy(DevName1, &argv[i][2]);
+					}
+				}
+
 				//920MHz Parameter settings
 				if(strncmp(argv[i], "-q", strlen("-q")) == 0){
 
 					//node
-					if(strncmp(argv[i], "-qa", strlen("-qa")) == 0){
-				 		if(sscanf(argv[i], "-qa%d", &qnode) != 1){
+					if(strncmp(argv[i], "-qn=", strlen("-qn=")) == 0){
+				 		if(sscanf(argv[i], "-qn=%s", qnode) != 1){
 							ret = -1;
 						}
 					}
 
 					//bandwidth
-					if(strncmp(argv[i], "-qb", strlen("-qb")) == 0){
-						if(sscanf(argv[i], "-qb%s", qbw) != 1){
+					if(strncmp(argv[i], "-qbw=", strlen("-qbw=")) == 0){
+						if(sscanf(argv[i], "-qbw=%s", qbw) != 1){
 							ret = -1;
 						}
 					}
 
 					//sf
-					if(strncmp(argv[i], "-qc", strlen("-qc")) == 0){
-						if(sscanf(argv[i], "-qc%d", &qsf) != 1){
+					if(strncmp(argv[i], "-qsf=", strlen("-qsf=")) == 0){
+						if(sscanf(argv[i], "-qsf=%d", &qsf) != 1){
 							ret = -1;
 						}
 					}
-
-					if(strncmp(argv[i], "-qd", strlen("-qd")) == 0){
-						if(sscanf(argv[i], "-qd%d", &qch) != 1){
-							ret = -1;
-						}
-
-					}
-
-					if(strncmp(argv[i], "-qe", strlen("-qe")) == 0){
-						if(sscanf(argv[i], "-qe%d", &qpan) != 1){
+					// channel
+					if(strncmp(argv[i], "-qc=", strlen("-qc=")) == 0){
+						if(sscanf(argv[i], "-qc=%d", &qch) != 1){
 							ret = -1;
 						}
 
 					}
+					// Pan ID
+					if(strncmp(argv[i], "-qpid=", strlen("-qpid=")) == 0){
+						if(sscanf(argv[i], "-qpid=%d", &qpan) != 1){
+							ret = -1;
+						}
 
-					if(strncmp(argv[i], "-qf", strlen("-qf")) == 0){
-						if(sscanf(argv[i], "-qf%d", &qown) != 1){
+					}
+					//
+					if(strncmp(argv[i], "-qoid=", strlen("-qoid=")) == 0){
+						if(sscanf(argv[i], "-qoid=%d", &qown) != 1){
 							ret = -1;
 						}
 					}
 
-					if(strncmp(argv[i], "-qg", strlen("-qg")) == 0){
-						if(sscanf(argv[i], "-qg%d", &qdst) != 1){
+					if(strncmp(argv[i], "-qdid=", strlen("-qdid=")) == 0){
+						if(sscanf(argv[i], "-qdid=%d", &qdst) != 1){
 							ret = -1;
 						}
 					}
 
-					if(strncmp(argv[i], "-ql", strlen("-ql")) == 0){
-						if(sscanf(argv[i], "-ql%d", &qack) != 1){
+					if(strncmp(argv[i], "-qa=", strlen("-qa=")) == 0){
+						if(sscanf(argv[i], "-qa=%d", &qack) != 1){
 							ret = -1;
 						}
 					}
 
-					if(strncmp(argv[i], "-qm", strlen("-qm")) == 0){
-						if(sscanf(argv[i], "-qi%d", &qret) != 1){
+					if(strncmp(argv[i], "-qr=", strlen("-qr=")) == 0){
+						if(sscanf(argv[i], "-qr=%d", &qret) != 1){
 							ret = -1;
 						}
 					}
 
-					if(strncmp(argv[i], "-qr", strlen("-qr")) == 0){
-						if(sscanf(argv[i], "-qr%d", &qbaud) != 1){
+					if(strncmp(argv[i], "-qsl=", strlen("-qsl=")) == 0){
+						if(sscanf(argv[i], "-qsl=%d", &qslep) != 1){
 							ret = -1;
 						}
 					}
 
-					if(strncmp(argv[i], "-qs", strlen("-qs")) == 0){
-						if(sscanf(argv[i], "-qs%d", &qslep) != 1){
+					if(strncmp(argv[i], "-qst=", strlen("-qst=")) == 0){
+						if(sscanf(argv[i], "-qst=%d", &qsleptm) != 1){
 							ret = -1;
 						}
 					}
 
-					if(strncmp(argv[i], "-qt", strlen("-qt")) == 0){
-						if(sscanf(argv[i], "-qt%d", &qsleptm) != 1){
-							ret = -1;
-						}
-					}
-
-					if(strncmp(argv[i], "-qu", strlen("-qu")) == 0){
-						if(sscanf(argv[i], "-qu%d", &qpwr) != 1){
+					if(strncmp(argv[i], "-qpwr=", strlen("-qpwr=")) == 0){
+						if(sscanf(argv[i], "-qpwr=%d", &qpwr) != 1){
 							ret = -1;
 						}
 					}
 				}
 
+				i++;
 			}
-
-			i++;
+			if(ret){
+				printf("param error\n");
+				return ret;
+			}
 		}
-		if(ret){
-			printf("param error\n");
-			return ret;
-		}
-	}
-
-
+	//}
 
 	printf("Wait = %dms Cnt = %ld\n", iWait, iCnt);
 
 	//Initialization
-	iRet = easel_ES920_init(DevName1,qbaud);
+	iRet = easel_ES920_init(DevName1,ibaudrate);
 	if( iRet ){
 		printf("DevName1: open error\n");
 		return 1;
 	}
-
-	//iRet = rs232c_init(DevName2);
-	//if( iRet ){
-	//	printf("DevName2: open error\n");
-	//	return 1;
-	//}
 
 	// 設定モード要求
 	iRet = SettingRequest();
@@ -278,25 +287,41 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
+	// String→Int変換
+	// ノード種別設定
+	if( strcmp(qnode,"master") == 0 ||
+		strcmp(qnode,"parent") == 0 ||
+		strcmp(qnode,"coordinator") == 0 )	inode = EASEL_ES920_NODE_COORDINATOR;
+	else if( strcmp(qnode,"slave") == 0 ||
+			strcmp(qnode,"child") == 0 ||
+			strcmp(qnode,"enddevice") == 0 ) inode = EASEL_ES920_NODE_ENDDEVICE;
+
+	// 帯域幅設定
+	if( strcmp(qbw,"125k") == 0 )	ibw = EASEL_ES920_BANDWIDTH_125K;
+	else if( strcmp(qbw,"250k") == 0 )	ibw = EASEL_ES920_BANDWIDTH_250K;
+	else if( strcmp(qbw,"500k") == 0 )	ibw = EASEL_ES920_BANDWIDTH_500K;
+
+	qbaud = EASEL_ES920_BAUDRATE(ibaudrate);
+	//printf("qbaud = %d\n", qbaud);
 	// 無線設定要求
 	iRet = easel_ES920_set_wireless(
-			EASEL_ES920_NODE_ENDDEVICE,
-			EASEL_ES920_BANDWIDTH_125K,
-			EASEL_ES920_SPREADINGFACTOR_7,
-			1,			//Channel: 1
-			1,			//Panid : 0x0001
-			0,			//Ownid : 0x0001
-			1,			//Dstid : 0x0000
-			EASEL_ES920_ACK_ON,  	//1
-			0,			//Rettry: 3
-			EASEL_ES920_TRASMOD_PAYLOAD,//
+			inode,
+			ibw,
+			qsf,
+			qch,			//Channel: 1
+			qpan,			//Panid : 0x0001
+			qown,			//Ownid : 0x0001
+			qdst,			//Dstid : 0x0000
+			qack,  			//1
+			qret,			//Rettry: 3
+			EASEL_ES920_TRASMOD_PAYLOAD,
 			EASEL_ES920_RCVID_ON,
 			EASEL_ES920_RSSI_ON,
 			EASEL_ES920_MODE_OPERATION,
-			EASEL_ES920_BAUD_115200,
-			EASEL_ES920_SLEEP_OFF,
-			50,			//Sleep time: 50
-			13			//Power: 13dBm
+			qbaud,
+			qslep,
+			qsleptm,		//Sleep time: 50
+			qpwr			//Power: 13dBm
 	);
 	if(iRet){
 		printf("CAN'T SET WIRELESS DATA\n");
@@ -314,15 +339,21 @@ int main(int argc, char **argv)
 
 	printf("----- OPERATION MODE ------\n");
 
+	// シグナルハンドラ設定
+	if (SIG_ERR == signal(SIGINT, handler)) {
+		printf("failed tio set signal handler\n");
+		return 1;
+	}
+
 	// 初回の受信側の準備待ち
 	int count = 0;
-	while(1){
+	while(sig_cnt == 0){
 
 		//printf("1\n");
 		//DATA FROM EASEL to
 		memset(cRecv,'\0',sizeof(cRecv));
 		iRet = RecvTelegram(cRecv, &rx_pwr, &src_id, &src_addr);
-		printf("iRet = %d \n",iRet);
+		//("iRet = %d \n",iRet);
 		//iRet = RecvTelegramPayload(cRecv);
 		//printf("iRet = %d \n",iRet);
 		//printf("2\n");
@@ -366,8 +397,9 @@ int main(int argc, char **argv)
 	}
 
 	easel_ES920_exit();
-	//rs232c_exit();
-	//printf("Serial Port Closed...\n");
+	printf("ES920 Port Closed...\n");
+
+	system("sudo ./reset_usb_mcs341.sh");
 
 	return 0;
 }
@@ -414,4 +446,10 @@ int easel_ES920_csv_write(char *fname, unsigned int *rx_pwr, char *data, char *r
 
 	printf("%s file write finished\n", fname);
 	return 0;
+}
+
+// シグナルハンドラ
+void handler(int sig) {
+	printf("catch signal %d\n", sig);
+	sig_cnt++;
 }
