@@ -51,7 +51,8 @@ int main(int argc, char **argv)
 	int iRet;
 
 	char DevName1[26] = "/dev/ttyO3";
-	char cMsg[512] = "1234567890abcdefghijklmnopqrstuvwxyz";
+	char cSend[512] = "1234567890abcdefghijklmnopqrstuvwxyz";
+	char cMsg[512] = {0};
 	unsigned char cRecv[50] = {0};
 	int i = 1;
 	int ret = 0;
@@ -78,6 +79,7 @@ int main(int argc, char **argv)
 	int qslep=EASEL_ES920_SLEEP_OFF;
 	int qsleptm=50;
 	int qpwr=13;
+	int qcnt=100;
 
 	// 920MHz Setting Int
 	int inode=EASEL_ES920_NODE_ENDDEVICE;
@@ -92,6 +94,10 @@ int main(int argc, char **argv)
 	unsigned int  rx_pwr = 0;
 	char str = '0';
 	char *test_ret = NULL;
+
+	// CheckSum
+	int iChksum = 0;
+	int cMsgSize = 0;
 
 	BYTE multi64bitAddr[8]={0};
 
@@ -125,10 +131,11 @@ int main(int argc, char **argv)
 					printf("    -qoid=[ownid]\n");
 					printf("    -qdid=[dstid]\n");
 					printf("    -qa=[ack]\n");
-					printf("    -qr=[retly]\n");
+					printf("    -qr=[retry]\n");
 					printf("    -qsl=[sleep]\n");
 					printf("    -qst=[sleeptime]\n");
 					printf("    -qpwr=[power]\n");
+					printf("    -qcnt=[sendcount]\n");
 					printf("Usage:\n");
 					printf("Antenna type internal [0] external [1]\n");
 					printf("infinite loop [-1]\n");
@@ -166,7 +173,13 @@ int main(int argc, char **argv)
 				// Data
 				if(strncmp(argv[i], "-d", strlen("-d")) == 0){
 				 	if(strlen(argv[i]) > 2){
-						strcpy(cMsg, &argv[i][2]);
+						strcpy(cSend, &argv[i][2]);
+
+						// 暫定処置
+						if( strlen(cSend) > 47 ){
+							ret = -1;
+						}
+
 					}
 				}
 
@@ -256,6 +269,12 @@ int main(int argc, char **argv)
 							ret = -1;
 						}
 					}
+
+					if(strncmp(argv[i], "-qcnt=", strlen("-qcnt=")) == 0){
+						if(sscanf(argv[i], "-qcnt=%d", &qcnt) != 1){
+							ret = -1;
+						}
+					}
 				}
 
 				i++;
@@ -342,37 +361,37 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	char sendMsg[512]="1234567890abcdefghijklmnopqrstuvwxyz";
-
 	// 初回の受信側の準備待ち
 	int count = 0;
+	
 	while(sig_cnt == 0){
 
-		//printf("1\n");
-		//DATA FROM EASEL to
-		//memset(cRecv,'\0',sizeof(cRecv));
-		//iRet = RecvTelegram(cRecv);
-		//if(iRet>0){
-		//	usleep(100);
-		//	SendRS232C(cRecv);
-		//}
+		printf("Current count = %d, Set count = %d\n", count,qcnt);
 
-		//printf("2\n");
-		//usleep(100);
-		//memset(cRecv,'\0',sizeof(cRecv));
+		if(count == qcnt)
+		{
+			break;
+		}
+		
 
+		cMsgSize = strlen(cSend);
+		printf("send size : %d \n", cMsgSize);
 
-		//DATA FROM RS232C TO EASLE
-		//iRet = RecvRS232C(cRecv);
-		//if(iRet>0){
-			//usleep(100);
-			//iRet = SendTeregramPayload(sendMsg);
-			iRet = SendTeregram(sendMsg,0, 0);
-		//}
+		if( cMsgSize >= 1 ){
+			iChksum = Serial_SumCheck( cSend, cMsgSize, 1 );
 
-		//printf("3\n");
+			sprintf(cMsg, "%s%03d",cSend, iChksum);
+			cMsgSize += 3;
+		}else{
+			strcpy(cMsg, cSend);
+		}
+
+		printf("Data : %s \r\n", cMsg);
+
+		iRet = SendTeregram(cMsg,0, 0);
+
 		count++;
-		//memset(cRecv,'\0',sizeof(cRecv));
+		memset(cMsg, 0x00, cMsgSize );
 		sleep(1);
 	}
 

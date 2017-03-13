@@ -44,7 +44,7 @@
 */
 /// @{
 
-#if 1
+#if 0
 #define DbgPrint(fmt...)	printf(fmt)
 #else
 #define DbgPrint(fmt...)	do { } while (0)
@@ -62,7 +62,7 @@
 #define DbgDataLength(fmt...)	do { } while (0)
 #endif
 
-#if 1
+#if 0
 #define DbgPrintRecvTelegram(fmt...)	printf(fmt)
 #else
 #define DbgPrintRecvTelegram(fmt...)	do { } while (0)

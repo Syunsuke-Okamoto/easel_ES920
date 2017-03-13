@@ -46,7 +46,7 @@ static volatile int sig_cnt = 0;
 // プロトタイプ宣言
 void handler(int);
 void easel_ES920_newline_remove(char *);
-int easel_ES920_csv_write(char *, unsigned int *, char *, char *);
+int easel_ES920_csv_write(char *, short, char *, char *);
 
 
 int main(int argc, char **argv)
@@ -92,9 +92,13 @@ int main(int argc, char **argv)
 
 	// CSV設定
 	char *fname = "/home/conprosys/niimi/ES920LR.csv";
-	unsigned int  rx_pwr = 0;
+	short  rx_pwr = 0;
 	char str = '0';
-	char *test_ret = NULL;
+	char test_ret[3] = {0};
+
+	// CheckSum
+	int iRecvChksum = 0, iSendChksum = 0;
+	int cRecvSize = 0;
 
 	BYTE multi64bitAddr[8]={0};
 
@@ -128,7 +132,7 @@ int main(int argc, char **argv)
 					printf("    -qoid=[ownid]\n");
 					printf("    -qdid=[dstid]\n");
 					printf("    -qa=[ack]\n");
-					printf("    -qr=[retly]\n");
+					printf("    -qr=[retry]\n");
 					printf("    -qsl=[sleep]\n");
 					printf("    -qst=[sleeptime]\n");
 					printf("    -qpwr=[power]\n");
@@ -357,23 +361,53 @@ int main(int argc, char **argv)
 		//iRet = RecvTelegramPayload(cRecv);
 		//printf("iRet = %d \n",iRet);
 		//printf("2\n");
-		/*if(iRet >= 0)
+		if(iRet >= 0)
 		{
 			// 受信データから不要な改行を除去
 			easel_ES920_newline_remove(cRecv);
 			//printf("3\n");
 
-			printf("%s = cMsg %s = cRecv\n",cMsg,cRecv);
+			// printf("%s = cMsg \n %s = cRecv\n",cMsg,cRecv);
 
-			if(strcmp(cMsg ,cRecv) == 0)
-			{
-				test_ret = "OK";
-			} else {
-				test_ret = "NG";
+			cRecvSize = strlen(cRecv);
+
+
+
+			if( cRecvSize > 3 ){
+				iRecvChksum = Serial_SumCheck( &cRecv[0], cRecvSize-3 , 1 );
+
+				iSendChksum = atoi(&cRecv[cRecvSize-3]);
+
+				printf("check sum code <send %x recv %x > \n",iSendChksum, iRecvChksum );
+
+				if( iSendChksum == iRecvChksum){
+					strcpy(test_ret,"OK");
+					printf("OK\n");
+				}else{
+					strcpy(test_ret,"NG");
+					printf("NG\n");
+				}
+
+				memset(&cRecv[cRecvSize-3], 0x00, 3);
+
+			}else{
+				strcpy(test_ret,"NG");
+				printf("NG\n");
 			}
+
+
+			//if(strcmp(cMsg ,cRecv) == 0)
+			//{
+			//	test_ret = "OK";
+			//} else {
+			//	test_ret = "NG";
+			//}
 			//printf("4\n");
-			easel_ES920_csv_write(fname, &rx_pwr, cRecv, test_ret);
-		}*/
+
+			// * File名編集 (channel, bandwidth, spreadfactor ) *
+
+			easel_ES920_csv_write(fname, rx_pwr, cRecv, test_ret);
+		}
 		//if(iRet>0){
 		//	usleep(100);
 		//	SendRS232C(cRecv);
@@ -393,6 +427,7 @@ int main(int argc, char **argv)
 		//printf("3\n");
 		count++;
 		//memset(cRecv,'\0',sizeof(cRecv));
+		memset(test_ret,0x00, strlen(test_ret));
 		usleep(100);
 	}
 
@@ -415,10 +450,18 @@ void easel_ES920_newline_remove(char *str)
 }
 
 // CSV書き込み関数
-int easel_ES920_csv_write(char *fname, unsigned int *rx_pwr, char *data, char *ret)
+int easel_ES920_csv_write(char *fname, short rx_pwr, char *data, char ret[])
 {
 	FILE *fp;
+	struct tm *tm;
+
 	char date[64];
+	char fdate[64];
+
+	time_t t = time(NULL);
+	tm = localtime(&t);
+	strftime(date, sizeof(date), "%Y/%m/%d %a %H:%M:%S", tm);
+	strftime(fdate,sizeof(fdate),"_%Y%m%d_%H%M%S_",tm);
 
 	fp = fopen(fname, "a");
 	if(fp == NULL){
@@ -429,16 +472,13 @@ int easel_ES920_csv_write(char *fname, unsigned int *rx_pwr, char *data, char *r
 
 	//printf("1\n");
 
-	time_t t = time(NULL);
-	strftime(date, sizeof(date), "%Y/%m/%d %a %H:%M:%S", localtime(&t));
-
 	//printf("2\n");
 
-	//fprintf(fp, "%s,%s,%s,%s\n", date,*rx_pwr,data,ret);
-	fprintf(stdout, "%s\n", date);
-	fprintf(stdout, "%d\n", *rx_pwr);
-	fprintf(stdout, "%s\n",data);
-	fprintf(stdout, "%s\n", ret);
+	fprintf(fp, "%s,%d,%s,%s\n", date,rx_pwr,data,ret);
+	//fprintf(stdout, "%s\n", date);
+	//fprintf(stdout, "%d\n", *rx_pwr);
+	//fprintf(stdout, "%s\n",data);
+	//fprintf(stdout, "%s\n", ret);
 
 	//printf("3\n");
 

@@ -170,7 +170,7 @@ extern int easel_ES920_set_outpw(int outpw);
 
 
 int SendTelegram(unsigned char *buf, unsigned int dst_id, unsigned int dst_addr );
-int RecvTelegram(unsigned char *buf, unsigned int *rx_pwr, int *src_id, int *src_addr );
+int RecvTelegram(unsigned char *buf, short *rx_pwr, int *src_id, int *src_addr );
 int RecvRS232C(unsigned char *buf);
 int SendRS232C(unsigned char *buf);
 
