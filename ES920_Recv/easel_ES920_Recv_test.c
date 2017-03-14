@@ -39,14 +39,15 @@
 #include "libeasel_ES920.h"
 #include "easel_ES920.h"
 
-#define APP_VERSION "1.0.0"
+#define APP_VERSION "1.0.1"
 
 static volatile int sig_cnt = 0;
 
 // プロトタイプ宣言
+int keyhandler(void);
 void handler(int);
 void easel_ES920_newline_remove(char *);
-int easel_ES920_csv_write(char *, short, char *, char *);
+int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int qch, int ibw, int qsf);
 
 
 int main(int argc, char **argv)
@@ -81,6 +82,7 @@ int main(int argc, char **argv)
 	int qslep=EASEL_ES920_SLEEP_OFF;
 	int qsleptm=50;
 	int qpwr=13;
+	int qcnt=100;
 
 	// 920MHz Setting Int
 	int inode=EASEL_ES920_NODE_ENDDEVICE;
@@ -91,7 +93,7 @@ int main(int argc, char **argv)
 	int src_addr = 0;
 
 	// CSV設定
-	char *fname = "/home/conprosys/niimi/ES920LR.csv";
+	char fdate[64] = {0};
 	short  rx_pwr = 0;
 	char str = '0';
 	char test_ret[3] = {0};
@@ -101,6 +103,11 @@ int main(int argc, char **argv)
 	int cRecvSize = 0;
 
 	BYTE multi64bitAddr[8]={0};
+
+	// 結果表示
+	int ok_cnt = 0;
+	int ng_cnt = 0;
+	int total_cnt = 0;
 
 	//if( argc >= 2 ){
 
@@ -118,8 +125,8 @@ int main(int argc, char **argv)
 					printf("easel_ES920_through test [options]\n");
 					printf("options:\n");
 					printf(" -b[baudrate]\n");
-					printf(" -c[Count]\n");
-					printf(" -r[Retry Count]\n");
+					//printf(" -c[Count]\n");
+					//printf(" -r[Retry Count]\n");
 					printf(" -d[Data]\n");
 					printf(" -D[device node]\n");
 					printf(" -w[Wait(ms)]\n");
@@ -136,6 +143,7 @@ int main(int argc, char **argv)
 					printf("    -qsl=[sleep]\n");
 					printf("    -qst=[sleeptime]\n");
 					printf("    -qpwr=[power]\n");
+					printf("    -qcnt=[recvcount]\n");
 					printf("Usage:\n");
 					printf("Antenna type internal [0] external [1]\n");
 					printf("infinite loop [-1]\n");
@@ -263,6 +271,12 @@ int main(int argc, char **argv)
 							ret = -1;
 						}
 					}
+
+					if(strncmp(argv[i], "-qcnt=", strlen("-qcnt=")) == 0){
+						if(sscanf(argv[i], "-qcnt=%d", &qcnt) != 1){
+							ret = -1;
+						}
+					}
 				}
 
 				i++;
@@ -271,6 +285,37 @@ int main(int argc, char **argv)
 				printf("param error\n");
 				return ret;
 			}
+		}
+		else
+		{
+			printf("Please specify an argument\n\n");
+
+			printf("Version : %s \n", APP_VERSION );
+			printf("Version : %s \n", APP_VERSION );
+			printf("easel_ES920_through test [options]\n");
+			printf("options:\n");
+			printf(" -b[baudrate]\n");
+			printf(" -d[Data]\n");
+			printf(" -D[device node]\n");
+			printf(" -w[Wait(ms)]\n");
+			printf(" -q[920MHz Option]\n");
+			printf("    -qn=[node]\n");
+			printf("    -qbw=[bandwidth]\n");
+			printf("    -qsf=[sf]\n");
+			printf("    -qc=[channel]\n");
+			printf("    -qpid=[panid]\n");
+			printf("    -qoid=[ownid]\n");
+			printf("    -qdid=[dstid]\n");
+			printf("    -qa=[ack]\n");
+			printf("    -qr=[retry]\n");
+			printf("    -qsl=[sleep]\n");
+			printf("    -qst=[sleeptime]\n");
+			printf("    -qpwr=[power]\n");
+			printf("    -qcnt=[recvcount]\n");
+			printf("Usage:\n");
+			printf("Antenna type internal [0] external [1]\n");
+			printf("infinite loop [-1]\n");
+			return 0;
 		}
 	//}
 
@@ -306,7 +351,7 @@ int main(int argc, char **argv)
 	else if( strcmp(qbw,"500k") == 0 )	ibw = EASEL_ES920_BANDWIDTH_500K;
 
 	qbaud = EASEL_ES920_BAUDRATE(ibaudrate);
-	//printf("qbaud = %d\n", qbaud);
+
 	// 無線設定要求
 	iRet = easel_ES920_set_wireless(
 			inode,
@@ -351,31 +396,34 @@ int main(int argc, char **argv)
 
 	// 初回の受信側の準備待ち
 	int count = 0;
-	while(sig_cnt == 0){
 
-		//printf("1\n");
+	//CSVの時刻を設定
+	struct tm *tm;
+	time_t t = time(NULL);
+	tm = localtime(&t);
+	strftime(fdate,sizeof(fdate),"%Y%m%d%H%M.csv",tm);
+
+	while(sig_cnt == 0){
+		//printf("Debug 1\n");
+		if(Keyhandler()) {
+			printf("catch push key\n");
+			break;
+		}
+		//printf("Debug 2\n");
 		//DATA FROM EASEL to
 		memset(cRecv,'\0',sizeof(cRecv));
 		iRet = RecvTelegram(cRecv, &rx_pwr, &src_id, &src_addr);
-		//("iRet = %d \n",iRet);
-		//iRet = RecvTelegramPayload(cRecv);
-		//printf("iRet = %d \n",iRet);
-		//printf("2\n");
+		//printf("Debug 3\n");
 		if(iRet >= 0)
 		{
 			// 受信データから不要な改行を除去
 			easel_ES920_newline_remove(cRecv);
-			//printf("3\n");
-
-			// printf("%s = cMsg \n %s = cRecv\n",cMsg,cRecv);
-
+			//printf("Debug 4\n");
 			cRecvSize = strlen(cRecv);
-
-
 
 			if( cRecvSize > 3 ){
 				iRecvChksum = Serial_SumCheck( &cRecv[0], cRecvSize-3 , 1 );
-
+				//printf("Debug 5\n");
 				iSendChksum = atoi(&cRecv[cRecvSize-3]);
 
 				printf("check sum code <send %x recv %x > \n",iSendChksum, iRecvChksum );
@@ -383,9 +431,11 @@ int main(int argc, char **argv)
 				if( iSendChksum == iRecvChksum){
 					strcpy(test_ret,"OK");
 					printf("OK\n");
+					ok_cnt++;
 				}else{
 					strcpy(test_ret,"NG");
 					printf("NG\n");
+					ng_cnt++;
 				}
 
 				memset(&cRecv[cRecvSize-3], 0x00, 3);
@@ -394,42 +444,19 @@ int main(int argc, char **argv)
 				strcpy(test_ret,"NG");
 				printf("NG\n");
 			}
-
-
-			//if(strcmp(cMsg ,cRecv) == 0)
-			//{
-			//	test_ret = "OK";
-			//} else {
-			//	test_ret = "NG";
-			//}
-			//printf("4\n");
-
-			// * File名編集 (channel, bandwidth, spreadfactor ) *
-
-			easel_ES920_csv_write(fname, rx_pwr, cRecv, test_ret);
+			//printf("Debug 6\n");
+			easel_ES920_csv_write(fdate, rx_pwr, cRecv, test_ret, qch, ibw, qsf);
 		}
-		//if(iRet>0){
-		//	usleep(100);
-		//	SendRS232C(cRecv);
-		//}
 
-		//printf("5\n");
-		//usleep(100);
-		//memset(cRecv,'\0',sizeof(cRecv));
-
-		//DATA FROM RS232C TO EASLE
-		//iRet = RecvRS232C(cRecv);
-		//if(iRet>0){
-		//	usleep(100);
-		//	iRet = SendTelegram(cRecv);
-		//}
-
-		//printf("3\n");
 		count++;
-		//memset(cRecv,'\0',sizeof(cRecv));
+
 		memset(test_ret,0x00, strlen(test_ret));
 		usleep(100);
 	}
+
+	printf("----- LORAWAN RESULT ------\n");
+	printf("OK CNT=%d, TOTAL CNT=%d\n",ok_cnt,qcnt);
+	printf("---------------------------\n");
 
 	easel_ES920_exit();
 	printf("ES920 Port Closed...\n");
@@ -450,18 +477,37 @@ void easel_ES920_newline_remove(char *str)
 }
 
 // CSV書き込み関数
-int easel_ES920_csv_write(char *fname, short rx_pwr, char *data, char ret[])
+int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int qch, int ibw, int qsf)
 {
 	FILE *fp;
 	struct tm *tm;
 
 	char date[64];
-	char fdate[64];
+	char *fpwd = "/home/conprosys/niimi/ES920_Recv/";
+	char fch[2];
+	char fbw[2];
+	char fsf[2];
+	sprintf(fch,"%d",qch);
+	sprintf(fsf,"%d",qsf);
+
+	switch (ibw)	{
+		case 4 :
+			sprintf(fbw,"%d",125);
+			break;
+		case 5 :
+			sprintf(fbw,"%d",250);
+			break;
+		case 6 :
+			sprintf(fbw,"%d",500);
+			break;
+	}
+
+	char fname[256];
 
 	time_t t = time(NULL);
 	tm = localtime(&t);
-	strftime(date, sizeof(date), "%Y/%m/%d %a %H:%M:%S", tm);
-	strftime(fdate,sizeof(fdate),"_%Y%m%d_%H%M%S_",tm);
+	strftime(date, sizeof(date), "%m/%d %a %H:%M:%S", tm);
+	sprintf(fname,"%s%s_%s_%s_%s",fpwd,fch,fbw,fsf,fdate);
 
 	fp = fopen(fname, "a");
 	if(fp == NULL){
@@ -469,19 +515,7 @@ int easel_ES920_csv_write(char *fname, short rx_pwr, char *data, char ret[])
 		return -1;
 	}
 
-
-	//printf("1\n");
-
-	//printf("2\n");
-
 	fprintf(fp, "%s,%d,%s,%s\n", date,rx_pwr,data,ret);
-	//fprintf(stdout, "%s\n", date);
-	//fprintf(stdout, "%d\n", *rx_pwr);
-	//fprintf(stdout, "%s\n",data);
-	//fprintf(stdout, "%s\n", ret);
-
-	//printf("3\n");
-
 	fclose(fp );
 
 	printf("%s file write finished\n", fname);
@@ -492,4 +526,30 @@ int easel_ES920_csv_write(char *fname, short rx_pwr, char *data, char ret[])
 void handler(int sig) {
 	printf("catch signal %d\n", sig);
 	sig_cnt++;
+}
+
+// Keyハンドラ
+int Keyhandler(void) {
+	struct termios oldt, newt;
+	int ch;
+	int oldf;
+
+	tcgetattr(STDIN_FILENO, &oldt);
+	newt = oldt;
+	newt.c_lflag &= ~(ICANON | ECHO);
+	tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+	oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+	fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+
+	ch = getchar();
+
+	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+	fcntl(STDIN_FILENO, F_SETFL, oldf);
+
+	if(ch != EOF) {
+		ungetc(ch, stdin);
+		return 1;
+	}
+
+	return 0;
 }

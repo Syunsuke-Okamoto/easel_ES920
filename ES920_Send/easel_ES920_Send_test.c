@@ -117,8 +117,8 @@ int main(int argc, char **argv)
 					printf("easel_ES920_through test [options]\n");
 					printf("options:\n");
 					printf(" -b[baudrate]\n");
-					printf(" -c[Count]\n");
-					printf(" -r[Retry Count]\n");
+					//printf(" -c[Count]\n");
+					//printf(" -r[Retry Count]\n");
 					printf(" -d[Data]\n");
 					printf(" -D[device node]\n");
 					printf(" -w[Wait(ms)]\n");
@@ -284,6 +284,37 @@ int main(int argc, char **argv)
 				return ret;
 			}
 		}
+		else
+		{
+			printf("Please specify an argument\n\n");
+
+			printf("Version : %s \n", APP_VERSION );
+			printf("Version : %s \n", APP_VERSION );
+			printf("easel_ES920_through test [options]\n");
+			printf("options:\n");
+			printf(" -b[baudrate]\n");
+			printf(" -d[Data]\n");
+			printf(" -D[device node]\n");
+			printf(" -w[Wait(ms)]\n");
+			printf(" -q[920MHz Option]\n");
+			printf("    -qn=[node]\n");
+			printf("    -qbw=[bandwidth]\n");
+			printf("    -qsf=[sf]\n");
+			printf("    -qc=[channel]\n");
+			printf("    -qpid=[panid]\n");
+			printf("    -qoid=[ownid]\n");
+			printf("    -qdid=[dstid]\n");
+			printf("    -qa=[ack]\n");
+			printf("    -qr=[retry]\n");
+			printf("    -qsl=[sleep]\n");
+			printf("    -qst=[sleeptime]\n");
+			printf("    -qpwr=[power]\n");
+			printf("    -qcnt=[recvcount]\n");
+			printf("Usage:\n");
+			printf("Antenna type internal [0] external [1]\n");
+			printf("infinite loop [-1]\n");
+			return 0;
+		}
 	//}
 
 	printf("Wait = %dms Cnt = %ld\n", iWait, iCnt);
@@ -365,6 +396,8 @@ int main(int argc, char **argv)
 	int count = 0;
 	
 	while(sig_cnt == 0){
+
+		sleep(1);
 
 		printf("Current count = %d, Set count = %d\n", count,qcnt);
 
