@@ -163,8 +163,6 @@ extern int easel_ES920_set_slepsw(int slepsw);
 extern int easel_ES920_set_slept(int slepNum);
 extern int easel_ES920_set_outpw(int outpw);
 
-extern int easel_ES920_set_serial_wait( int waitMsecTime );
-
 #define easel_ES920_set_processor_mode()	easel_ES920_set_mode_config( EASEL_ES920_INIT_PROCESSOR )
 #define easel_ES920_set_mode_operation()	_easel_es920_send_recv("z", 0);  // any value is ok 
 #define easel_ES920_save_param()	_easel_es920_send_recv("w",0)
