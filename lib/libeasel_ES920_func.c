@@ -803,6 +803,23 @@ int easel_es920_version(int command, int *ver)
 
 /**
 	@~English
+	@brief EASEL 920 Module set serial wait time
+	@param waitMsecTime  : wait time [msec]
+	@return Success : 0
+	@~Japanese
+	@brief EASEL 920MHzモジュールとのシリアル送受信のウェイト時間を設定する関数
+	@param waitMsecTime : シリアル通信中のウェイト [ msec ]  )
+	@return 成功:  0
+**/
+int easel_ES920_set_serial_wait( int waitMsecTime )
+{
+	param.SerialWait = waitMsecTime * 1000;
+	return 0;
+}
+
+
+/**
+	@~English
 	@brief EASEL 920MHz Initialize
 	@param PortName : Serial port name
 	@return Success : 0 , Failed : otherwise 0
