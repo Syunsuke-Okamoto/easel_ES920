@@ -397,8 +397,9 @@ int main(int argc, char **argv)
 
 	// 帯域幅設定
 	if( strcmp(qbw,"125k") == 0 )	ibw = EASEL_ES920_BANDWIDTH_125K;
-	else if( strcmp(qbw,"250k") == 0 )	ibw = EASEL_ES920_BANDWIDTH_250K;
-	else if( strcmp(qbw,"500k") == 0 )	ibw = EASEL_ES920_BANDWIDTH_500K;
+	else if( strcmp(qbw,"250k") == 0 ) ibw = EASEL_ES920_BANDWIDTH_250K;
+	else if( strcmp(qbw,"500k") == 0 ) ibw = EASEL_ES920_BANDWIDTH_500K;
+	else if( strcmp(qbw,"62.5k") == 0 ) ibw = EASEL_ES920_BANDWIDTH_62500;
 
 	qbaud = EASEL_ES920_BAUDRATE(ibaudrate);
 
