@@ -39,12 +39,13 @@
 #include "libeasel_ES920.h"
 #include "easel_ES920.h"
 
-#define APP_VERSION "1.0.0"
+#define APP_VERSION "1.0.1"
 
 static volatile int sig_cnt = 0;
 
 // プロトタイプ宣言
 void handler(int);
+int nullcheck(const char *str);
 
 int main(int argc, char **argv)
 {
@@ -227,7 +228,7 @@ int main(int argc, char **argv)
 						}
 
 					}
-					//
+
 					if(strncmp(argv[i], "-qoid=", strlen("-qoid=")) == 0){
 						if(sscanf(argv[i], "-qoid=%d", &qown) != 1){
 							ret = -1;
@@ -309,7 +310,7 @@ int main(int argc, char **argv)
 			printf("    -qsl=[sleep]\n");
 			printf("    -qst=[sleeptime]\n");
 			printf("    -qpwr=[power]\n");
-			printf("    -qcnt=[recvcount]\n");
+			printf("    -qcnt=[sendcount]\n");
 			printf("Usage:\n");
 			printf("Antenna type internal [0] external [1]\n");
 			printf("infinite loop [-1]\n");
@@ -318,6 +319,53 @@ int main(int argc, char **argv)
 	//}
 
 	printf("Wait = %dms Cnt = %ld\n", iWait, iCnt);
+
+	// 設定値の妥当性を確認
+	// Data
+	int cMsglen = strlen(cMsg);
+	if(cMsglen < 0 || cMsglen > 47)	ret = -1;
+	//printf("Debug Data chk = %d\n",ret);
+	// sf
+	if(qsf < 7 || qsf > 12) ret = -1;
+	//printf("Debug sf chk = %d\n",ret);
+	// chaneel
+	if(qch < 1 || qch > 15) ret = -1;
+	//printf("Debug chaneel chk = %d\n",ret);
+	// panid
+	if(qpan < 1 || qpan > 9999) ret = -1;
+	//printf("Debug panid chk = %d\n",ret);
+	// ownid
+	if(qown < 0 || qown > 9999) ret = -1;
+	//printf("Debug ownid chk = %d\n",ret);
+	// dstid
+	if(qdst < 0 || qdst > 9999) ret = -1;
+	//printf("Debug dstid chk = %d\n",ret);
+    // ack
+	if(qack < 1 || qack > 2) ret = -1;
+	//printf("Debug ack chk = %d\n",ret);
+	// retry
+	if(qret < 0 || qret > 10) ret = -1;
+	//printf("Debug retry chk = %d\n",ret);
+	// sleep
+	if(qslep < 1 || qslep > 3) ret = -1;
+	//printf("Debug sleep chk = %d\n",ret);
+	// sleeptime
+	if(qsleptm < 1 || qsleptm > 86400) ret = -1;
+	//printf("Debug sleeptime chk = %d\n",ret);
+	// power
+	if(qpwr < -4 || qpwr > 13) ret = -1;
+	//printf("Debug power chk = %d\n",ret);
+	// count
+	if(qcnt < 1 || qcnt > 9999) ret = -1;
+	//printf("Debug count chk = %d\n",ret);
+
+	if(ret){
+		printf("param error\n");
+		return ret;
+	}
+
+	//Debug add
+	//return 0;
 
 	//Initialization
 	iRet = easel_ES920_init(DevName1,ibaudrate);
@@ -440,4 +488,16 @@ int main(int argc, char **argv)
 void handler(int sig) {
 	printf("catch signal %d\n", sig);
 	sig_cnt++;
+}
+
+// NULLチェック
+int nullcheck(const char *str) {
+	if (str == NULL) {
+		return TRUE;
+	}
+	if (strlen(str) == 0) {
+		return TRUE;
+	}
+
+	return FALSE;
 }
