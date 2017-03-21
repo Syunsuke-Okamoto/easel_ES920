@@ -102,6 +102,9 @@ int main(int argc, char **argv)
 
 	BYTE multi64bitAddr[8]={0};
 
+	// Wait設定
+	int wait = 1;
+
 	//if( argc >= 2 ){
 
 	//	strcpy( DevName1, argv[1] );
@@ -441,6 +444,29 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+/*	// Wait時間設定
+	switch(qsf)
+	{
+		case 7:
+			wait = 8;
+			break;
+		case 8:
+			wait = 8;
+			break;
+		case 9:
+			wait = 9;
+			break;
+		case 10:
+			wait = 9;
+			break;
+		case 11:
+			wait = 10;
+			break;
+		case 12:
+			wait = 10;
+			break;
+	}*/
+
 	// 初回の受信側の準備待ち
 	int count = 0;
 	
@@ -472,9 +498,12 @@ int main(int argc, char **argv)
 
 		iRet = SendTeregram(cMsg,0, 0);
 
-		count++;
+		if( iRet >= 0 ){
+			count++;
+		}
 		memset(cMsg, 0x00, cMsgSize );
-		sleep(1);
+		//sleep(wait);
+		sleep(4);
 	}
 
 	easel_ES920_exit();

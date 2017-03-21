@@ -1,5 +1,7 @@
 #!/bin/sh
 
+sleep 10
+
 case $1 in
  1) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=13 -qsf=12 -qbw=125k -qc=8
  ;;

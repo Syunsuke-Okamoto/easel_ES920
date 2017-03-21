@@ -466,12 +466,14 @@ int main(int argc, char **argv)
 			printf("catch push key\n");
 			break;
 		}
+
+
 		//printf("Debug 2\n");
 		//DATA FROM EASEL to
 		memset(cRecv,'\0',sizeof(cRecv));
 		iRet = RecvTelegram(cRecv, &rx_pwr, &src_id, &src_addr);
 		//printf("Debug 3\n");
-		if(iRet >= 0)
+		if(iRet > 0)
 		{
 			// 受信データから不要な改行を除去
 			easel_ES920_newline_remove(cRecv);
@@ -503,13 +505,17 @@ int main(int argc, char **argv)
 			}
 			//printf("Debug 6\n");
 			easel_ES920_csv_write(fdate, rx_pwr, cRecv, test_ret, qch, ibw, qsf);
+			count++;
 		}
 
-		count++;
+		//count++;
 
 		memset(test_ret,0x00, strlen(test_ret));
-		usleep(100);
+		//usleep(100);
+		sleep(1);
 	}
+
+	//sleep(10);
 
 	printf("----- LORAWAN RESULT ------\n");
 	printf("OK CNT=%d, TOTAL CNT=%d\n",ok_cnt,qcnt);
