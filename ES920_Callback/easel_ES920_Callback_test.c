@@ -1,5 +1,5 @@
 /******************************************************************************/
-// easel_ES920_Recv_test.c - easel_ES920_Recv_test file
+// easel_ES920_Callback_test.c - easel_ES920_Callback_test file
 /******************************************************************************/
 
 /*
@@ -39,7 +39,7 @@
 #include "libeasel_ES920.h"
 #include "easel_ES920.h"
 
-#define APP_VERSION "1.0.1"
+#define APP_VERSION "1.0.0"
 
 static volatile int sig_cnt = 0;
 
@@ -47,6 +47,7 @@ static volatile int sig_cnt = 0;
 int keyhandler(void);
 void handler(int);
 void easel_ES920_newline_remove(char *);
+void easel_ES920_checksum_remove(char *);
 int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int qch, int ibw, int qsf);
 int nullcheck(const char *str);
 
@@ -55,7 +56,7 @@ int main(int argc, char **argv)
 	int iRet;
 
 	char DevName1[26] = "/dev/ttyO3";
-	char cMsg[512] = "1234567890abcdefghijklmnopqrstuvwxyz";
+	char cMsg[512] = {0};
 	unsigned char cRecv[50] = {0};
 	int i = 1;
 	int ret = 0;
@@ -101,6 +102,8 @@ int main(int argc, char **argv)
 	// CheckSum
 	int iRecvChksum = 0, iSendChksum = 0;
 	int cRecvSize = 0;
+	int iChksum = 0;
+	int cMsgSize = 0;
 
 	BYTE multi64bitAddr[8]={0};
 
@@ -344,7 +347,7 @@ int main(int argc, char **argv)
 	// dstid
 	if(qdst < 0 || qdst > 9999) ret = -1;
 	//printf("Debug dstid chk = %d\n",ret);
-    // ack
+	// ack
 	if(qack < 1 || qack > 2) ret = -1;
 	//printf("Debug ack chk = %d\n",ret);
 	// retry
@@ -454,19 +457,12 @@ int main(int argc, char **argv)
 	// 初回の受信側の準備待ち
 	int count = 0;
 
-	//CSVの時刻を設定
-	struct tm *tm;
-	time_t t = time(NULL);
-	tm = localtime(&t);
-	strftime(fdate,sizeof(fdate),"%Y%m%d%H%M.csv",tm);
-
 	while(sig_cnt == 0){
 		//printf("Debug 1\n");
 		if(Keyhandler()) {
 			printf("catch push key\n");
 			break;
 		}
-
 
 		//printf("Debug 2\n");
 		//DATA FROM EASEL to
@@ -475,51 +471,38 @@ int main(int argc, char **argv)
 		//printf("Debug 3\n");
 		if(iRet > 0)
 		{
+
 			// 受信データから不要な改行を除去
 			easel_ES920_newline_remove(cRecv);
-			//printf("Debug 4\n");
-			cRecvSize = strlen(cRecv);
+			// 受信データから不要なチェックサムを除去
+			easel_ES920_checksum_remove(cRecv);
 
-			if( cRecvSize > 3 ){
-				iRecvChksum = Serial_SumCheck( &cRecv[0], cRecvSize-3 , 1 );
-				//printf("Debug 5\n");
-				iSendChksum = atoi(&cRecv[cRecvSize-3]);
+			printf("send back receive data\n");
 
-				printf("check sum code <send %x recv %x > \n",iSendChksum, iRecvChksum );
+			cMsgSize = strlen(cRecv);
+			printf("send size : %d \n", cMsgSize);
 
-				if( iSendChksum == iRecvChksum){
-					strcpy(test_ret,"OK");
-					printf("OK\n");
-					ok_cnt++;
-				}else{
-					strcpy(test_ret,"NG");
-					printf("NG\n");
-					ng_cnt++;
-				}
+			if( cMsgSize >= 1 ){
+				iChksum = Serial_SumCheck(cRecv, cMsgSize, 1);
 
-				memset(&cRecv[cRecvSize-3], 0x00, 3);
-
+				sprintf(cMsg, "%s%03d",cRecv, iChksum);
+				cMsgSize += 3;
 			}else{
-				strcpy(test_ret,"NG");
-				printf("NG\n");
+				strcpy(cMsg, cRecv);
 			}
-			//printf("Debug 6\n");
-			easel_ES920_csv_write(fdate, rx_pwr, cRecv, test_ret, qch, ibw, qsf);
-			count++;
+
+			printf("Data : %s \r\n", cMsg);
+			// 受信データを折り返し送信
+			SendTeregram(cMsg,0, 0);
+
+			memset(cMsg, 0x00, cMsgSize );
 		}
 
-		//count++;
-
-		memset(test_ret,0x00, strlen(test_ret));
-		//usleep(100);
-		sleep(1);
+		//usleep(500000);
+		usleep(250000);
+		//usleep(100000);
+		//sleep(1);
 	}
-
-	//sleep(10);
-
-	printf("----- ES920LR RESULT ------\n");
-	printf("OK CNT=%d, TOTAL CNT=%d\n",ok_cnt,qcnt);
-	printf("---------------------------\n");
 
 	easel_ES920_exit();
 	printf("ES920 Port Closed...\n");
@@ -539,6 +522,24 @@ void easel_ES920_newline_remove(char *str)
 	}
 }
 
+// 最後に入るチェックサムを除去する関数
+void easel_ES920_checksum_remove(char *str)
+{
+	unsigned char tmp[50] = {0};
+	int len;
+	int i;
+	len = strlen(str);
+
+	for(i = 0; i <(len-3); i++)
+	{
+		tmp[i] = str[i];
+	}
+
+	memset(&str[len-3], 0x00, 3);
+
+	strcpy(str,tmp);
+}
+
 // CSV書き込み関数
 int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int qch, int ibw, int qsf)
 {
@@ -554,9 +555,6 @@ int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int
 	sprintf(fsf,"%d",qsf);
 
 	switch (ibw)	{
-		case 3 :
-			sprintf(fbw,"%d",62);
-			break;
 		case 4 :
 			sprintf(fbw,"%d",125);
 			break;

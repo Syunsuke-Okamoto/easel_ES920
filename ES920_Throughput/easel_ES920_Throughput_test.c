@@ -1,5 +1,5 @@
 /******************************************************************************/
-// easel_ES920_Recv_test.c - easel_ES920_Recv_test file
+// easel_ES920_Throughput_test.c - easel_ES920_Throughput_test file
 /******************************************************************************/
 
 /*
@@ -39,23 +39,28 @@
 #include "libeasel_ES920.h"
 #include "easel_ES920.h"
 
-#define APP_VERSION "1.0.1"
+#define APP_VERSION "1.0.0"
 
 static volatile int sig_cnt = 0;
 
 // プロトタイプ宣言
-int keyhandler(void);
 void handler(int);
-void easel_ES920_newline_remove(char *);
-int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int qch, int ibw, int qsf);
 int nullcheck(const char *str);
+void easel_ES920_newline_remove(char *);
+int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int qch, int ibw, int qsf,
+		 	 	 	 	 	 double throughput_sec, double throughput_bps);
+double get_dtime(void);
+double calc_throughput_bps(int cRecvSize, double throughput_sec);
 
 int main(int argc, char **argv)
 {
 	int iRet;
+	int iSendRet;
+	int iRecvRet;
 
 	char DevName1[26] = "/dev/ttyO3";
-	char cMsg[512] = "1234567890abcdefghijklmnopqrstuvwxyz";
+	char cSend[512] = "1234567890abcdefghijklmnopqrstuvwxyz";
+	char cMsg[512] = {0};
 	unsigned char cRecv[50] = {0};
 	int i = 1;
 	int ret = 0;
@@ -74,8 +79,8 @@ int main(int argc, char **argv)
 	int qsf=EASEL_ES920_SPREADINGFACTOR_7;
 	int qch=1;
 	int qpan=1;
-	int qown=0;
-	int qdst=1;
+	int qown=1;
+	int qdst=0;
 	int qack=EASEL_ES920_ACK_ON;
 	int qret=0;
 	int qbaud=EASEL_ES920_BAUD_115200;
@@ -101,16 +106,30 @@ int main(int argc, char **argv)
 	// CheckSum
 	int iRecvChksum = 0, iSendChksum = 0;
 	int cRecvSize = 0;
+	int iChksum = 0;
+	int cMsgSize = 0;
 
 	BYTE multi64bitAddr[8]={0};
+
+	// Wait設定
+	int wait = 1;
+
+	// 速度計測
+	double start_time, end_time;
+	double throughput_sec;
+	double throughput_bps;
 
 	// 結果表示
 	int ok_cnt = 0;
 	int ng_cnt = 0;
 	int total_cnt = 0;
+	int recvng_cnt = 0;
 
 	// シリアル通信ウェイト時間
 	int waitMsecTime = 0;
+
+	// 受信時リトライ回数
+	int recv_retry_cnt = 100;
 
 	//if( argc >= 2 ){
 
@@ -146,7 +165,7 @@ int main(int argc, char **argv)
 					printf("    -qsl=[sleep]\n");
 					printf("    -qst=[sleeptime]\n");
 					printf("    -qpwr=[power]\n");
-					printf("    -qcnt=[recvcount]\n");
+					printf("    -qcnt=[sendcount]\n");
 					printf("Usage:\n");
 					printf("Antenna type internal [0] external [1]\n");
 					printf("infinite loop [-1]\n");
@@ -184,7 +203,13 @@ int main(int argc, char **argv)
 				// Data
 				if(strncmp(argv[i], "-d", strlen("-d")) == 0){
 				 	if(strlen(argv[i]) > 2){
-						strcpy(cMsg, &argv[i][2]);
+						strcpy(cSend, &argv[i][2]);
+
+						// 暫定処置
+						if( strlen(cSend) > 47 ){
+							ret = -1;
+						}
+
 					}
 				}
 
@@ -314,7 +339,7 @@ int main(int argc, char **argv)
 			printf("    -qsl=[sleep]\n");
 			printf("    -qst=[sleeptime]\n");
 			printf("    -qpwr=[power]\n");
-			printf("    -qcnt=[recvcount]\n");
+			printf("    -qcnt=[sendcount]\n");
 			printf("Usage:\n");
 			printf("Antenna type internal [0] external [1]\n");
 			printf("infinite loop [-1]\n");
@@ -344,7 +369,7 @@ int main(int argc, char **argv)
 	// dstid
 	if(qdst < 0 || qdst > 9999) ret = -1;
 	//printf("Debug dstid chk = %d\n",ret);
-    // ack
+	// ack
 	if(qack < 1 || qack > 2) ret = -1;
 	//printf("Debug ack chk = %d\n",ret);
 	// retry
@@ -397,12 +422,12 @@ int main(int argc, char **argv)
 
 	// 帯域幅設定
 	if( strcmp(qbw,"125k") == 0 )	ibw = EASEL_ES920_BANDWIDTH_125K;
-	else if( strcmp(qbw,"250k") == 0 ) ibw = EASEL_ES920_BANDWIDTH_250K;
-	else if( strcmp(qbw,"500k") == 0 ) ibw = EASEL_ES920_BANDWIDTH_500K;
+	else if( strcmp(qbw,"250k") == 0 )	ibw = EASEL_ES920_BANDWIDTH_250K;
+	else if( strcmp(qbw,"500k") == 0 )	ibw = EASEL_ES920_BANDWIDTH_500K;
 	else if( strcmp(qbw,"62.5k") == 0 ) ibw = EASEL_ES920_BANDWIDTH_62500;
 
 	qbaud = EASEL_ES920_BAUDRATE(ibaudrate);
-
+	//printf("qbaud = %d\n", qbaud);
 	// 無線設定要求
 	iRet = easel_ES920_set_wireless(
 			inode,
@@ -437,13 +462,13 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	printf("----- OPERATION MODE ------\n");
-
 	// シリアル通信のウェイト時間を定義
 	// マージン x BIT x 最大受信文字列長 x msec ) / ボーレート
 	waitMsecTime = (2 * 10 * 62 * 1000) / ibaudrate;
 	easel_ES920_set_serial_wait(waitMsecTime);
 	printf("%d = set serial wait time\n", waitMsecTime);
+
+	printf("-------- OPERATION MODE --------\n");
 
 	// シグナルハンドラ設定
 	if (SIG_ERR == signal(SIGINT, handler)) {
@@ -451,39 +476,120 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	// 初回の受信側の準備待ち
-	int count = 0;
-
 	//CSVの時刻を設定
 	struct tm *tm;
 	time_t t = time(NULL);
 	tm = localtime(&t);
 	strftime(fdate,sizeof(fdate),"%Y%m%d%H%M.csv",tm);
 
+	// 初回の受信側の準備待ち
+	int count = 0;
+
+	// 平均値計算
+	double throughnum[qcnt];
+	double sum, ave;
+	
+	double throughnum_bps[qcnt];
+	double sum_bps, ave_bps;
+
 	while(sig_cnt == 0){
-		//printf("Debug 1\n");
-		if(Keyhandler()) {
-			printf("catch push key\n");
+
+		iRecvRet = 0;
+
+		if(count == qcnt)
+		{
 			break;
 		}
+		
+		sleep(1);
+		printf("Current count = %d, Set count = %d\n", count,qcnt);
 
+		cMsgSize = strlen(cSend);
+		printf("send size : %d \n", cMsgSize);
 
-		//printf("Debug 2\n");
-		//DATA FROM EASEL to
+		if( cMsgSize >= 1 ){
+			iChksum = Serial_SumCheck( cSend, cMsgSize, 1 );
+
+			sprintf(cMsg, "%s%03d",cSend, iChksum);
+			cMsgSize += 3;
+		}else{
+			strcpy(cMsg, cSend);
+		}
+
+		printf("Data : %s \r\n", cMsg);
+
+		start_time = get_dtime();
+		iSendRet = SendTeregram(cMsg,0, 0);
+
+		//sleep(1);
+		//usleep(100000);
+
+		int readcnt = 0;
+
+		while(readcnt < recv_retry_cnt)
+		{
+			//usleep(500000);
+			//usleep(250000);
+			//usleep(100000);
+
+			memset(cRecv,'\0',sizeof(cRecv));
+			iRecvRet = RecvTelegram(cRecv, &rx_pwr, &src_id, &src_addr);
+
+			if(iRecvRet == (strlen(cMsg) + 14) )
+			{
+				printf("iRecvRet = %d, sendsize = %d\n",iRecvRet,(strlen(cMsg) + 14));
+				printf("receive return data\n");
+
+				printf("Recv Data = %s", cRecv);
+
+				break;
+			}
+			else
+			{
+				readcnt++;
+				//printf("iRecvRet = %d, sendsize = %d\n",iRecvRet,(strlen(cMsg) + 14));
+				//printf("receive retry %d cnt\n",readcnt);
+			}
+
+			//usleep(300000);
+			//usleep(200000); //OK 7
+			//usleep(250000); //OK 8
+			//usleep(100000);
+			//sleep(1);
+		}
+
+		if(readcnt == recv_retry_cnt)
+		{
+			printf("receive error\n");
+			recvng_cnt++;
+		}
+
+/*		unsigned char tmp[50] = {0};
+
+		strncpy(tmp, cRecv+4,strlen(cRecv));
+
 		memset(cRecv,'\0',sizeof(cRecv));
-		iRet = RecvTelegram(cRecv, &rx_pwr, &src_id, &src_addr);
-		//printf("Debug 3\n");
-		if(iRet > 0)
+		strcpy(cRecv,tmp);*/
+
+		if(iRecvRet > 0)
 		{
 			// 受信データから不要な改行を除去
 			easel_ES920_newline_remove(cRecv);
-			//printf("Debug 4\n");
 			cRecvSize = strlen(cRecv);
+
+			// 受信成功後の計算処理
+			end_time = get_dtime();
+			throughput_sec = (end_time - start_time);
+			throughnum[count] = throughput_sec;
+			sum += throughnum[count];
+
+			throughput_bps = calc_throughput_bps(cRecvSize, throughput_sec);
+			throughnum_bps[count] = throughput_bps;
+			sum_bps += throughnum_bps[count];
 
 			if( cRecvSize > 3 ){
 				iRecvChksum = Serial_SumCheck( &cRecv[0], cRecvSize-3 , 1 );
-				//printf("Debug 5\n");
-				iSendChksum = atoi(&cRecv[cRecvSize-3]);
+				iSendChksum = iChksum;
 
 				printf("check sum code <send %x recv %x > \n",iSendChksum, iRecvChksum );
 
@@ -491,42 +597,59 @@ int main(int argc, char **argv)
 					strcpy(test_ret,"OK");
 					printf("OK\n");
 					ok_cnt++;
+					// スループットの表示
+					printf("throughput is %06.2f[sec]\n",throughput_sec);
+					printf("throughput is %06.2f[bps]\n",throughput_bps);
 				}else{
 					strcpy(test_ret,"NG");
 					printf("NG\n");
 					ng_cnt++;
 				}
-
 				memset(&cRecv[cRecvSize-3], 0x00, 3);
-
 			}else{
 				strcpy(test_ret,"NG");
 				printf("NG\n");
 			}
-			//printf("Debug 6\n");
-			easel_ES920_csv_write(fdate, rx_pwr, cRecv, test_ret, qch, ibw, qsf);
-			count++;
+
+			easel_ES920_csv_write(fdate, rx_pwr, cRecv, test_ret, qch, ibw, qsf, throughput_sec, throughput_bps);
 		}
 
-		//count++;
-
+		count++;
 		memset(test_ret,0x00, strlen(test_ret));
-		//usleep(100);
-		sleep(1);
+		memset(cMsg, 0x00, cMsgSize );
+		sleep(4);
 	}
 
-	//sleep(10);
+	// 平均値の計算と出力
+	ave = sum/count;
+	ave_bps = sum_bps/count;
 
-	printf("----- ES920LR RESULT ------\n");
-	printf("OK CNT=%d, TOTAL CNT=%d\n",ok_cnt,qcnt);
-	printf("---------------------------\n");
+	printf("-------- ES920LR RESULT --------\n");
+	printf("TOTAL          CNT = %d\n",count);
+	printf("OK             CNT = %d\n",ok_cnt);
+	printf("NG             CNT = %d\n",ng_cnt);
+	printf("RECEIVE ERROR  CNT = %d\n",recvng_cnt);
+	printf("AVERAGE THROUGHPUT = %06.2f[sec]\n",ave);
+	printf("                   = %06.2f[bps]\n",ave_bps);
+	printf("--------------------------------\n");
 
 	easel_ES920_exit();
 	printf("ES920 Port Closed...\n");
-
 	system("sudo ./reset_usb_mcs341.sh");
 
 	return 0;
+}
+
+// NULLチェック
+int nullcheck(const char *str) {
+	if (str == NULL) {
+		return TRUE;
+	}
+	if (strlen(str) == 0) {
+		return TRUE;
+	}
+
+	return FALSE;
 }
 
 // 最後に入る改行コードを除去する関数
@@ -540,13 +663,14 @@ void easel_ES920_newline_remove(char *str)
 }
 
 // CSV書き込み関数
-int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int qch, int ibw, int qsf)
+int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int qch, int ibw, int qsf,
+		 	 	 	 	 	 double throughput_sec, double throughput_bps)
 {
 	FILE *fp;
 	struct tm *tm;
 
 	char date[64];
-	char *fpwd = "/home/conprosys/niimi/ES920_Recv/";
+	char *fpwd = "/home/conprosys/niimi/ES920_Throughput/";
 	char fch[2];
 	char fbw[2];
 	char fsf[2];
@@ -554,7 +678,7 @@ int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int
 	sprintf(fsf,"%d",qsf);
 
 	switch (ibw)	{
-		case 3 :
+			case 3 :
 			sprintf(fbw,"%d",62);
 			break;
 		case 4 :
@@ -581,11 +705,18 @@ int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int
 		return -1;
 	}
 
-	fprintf(fp, "%s,%d,%s,%s\n", date,rx_pwr,data,ret);
+	fprintf(fp, "%s,%d,%s,%.2f,%.2f,%s\n", date,rx_pwr,data,throughput_sec,throughput_bps,ret);
 	fclose(fp );
 
 	printf("%s file write finished\n", fname);
 	return 0;
+}
+
+// 時間計測
+double get_dtime(void){
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return ((double)(tv.tv_sec)+(double)(tv.tv_usec) * 0.001 * 0.001);
 }
 
 // シグナルハンドラ
@@ -594,40 +725,14 @@ void handler(int sig) {
 	sig_cnt++;
 }
 
-// Keyハンドラ
-int Keyhandler(void) {
-	struct termios oldt, newt;
-	int ch;
-	int oldf;
+// スループットのbps計算
+double calc_throughput_bps(int cRecvSize, double throughput_sec) {
+	double ret = 0;
 
-	tcgetattr(STDIN_FILENO, &oldt);
-	newt = oldt;
-	newt.c_lflag &= ~(ICANON | ECHO);
-	tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-	oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
-	fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
-
-	ch = getchar();
-
-	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-	fcntl(STDIN_FILENO, F_SETFL, oldf);
-
-	if(ch != EOF) {
-		ungetc(ch, stdin);
-		return 1;
-	}
-
-	return 0;
+	// (文字列数 x (startbit 1 + databit 8 + stopbit 1 ))
+	ret = (cRecvSize * 10) / throughput_sec;
+	return ret;
 }
 
-// NULLチェック
-int nullcheck(const char *str) {
-	if (str == NULL) {
-		return TRUE;
-	}
-	if (strlen(str) == 0) {
-		return TRUE;
-	}
 
-	return FALSE;
-}
+

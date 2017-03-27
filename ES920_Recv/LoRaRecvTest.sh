@@ -25,4 +25,8 @@ case $1 in
  ;;
  12) /home/conprosys/niimi/ES920_Recv/ES920RecvTest -qpwr=13 -qsf=11 -qbw=500k -qc=3
  ;;
+ 13) /home/conprosys/niimi/ES920_Recv/ES920RecvTest -qpwr=13 -qsf=12 -qbw=125k -qc=1
+ ;;
+ 14) /home/conprosys/niimi/ES920_Recv/ES920RecvTest -qpwr=13 -qsf=12 -qbw=125k -qc=15
+ ;;
 esac
