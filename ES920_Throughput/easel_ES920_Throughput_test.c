@@ -729,10 +729,9 @@ void handler(int sig) {
 double calc_throughput_bps(int cRecvSize, double throughput_sec) {
 	double ret = 0;
 
-	// (文字列数 x (startbit 1 + databit 8 + stopbit 1 ))
-	ret = (cRecvSize * 10) / throughput_sec;
+	// ((ヘッダ + 文字列数) x (startbit 1 + databit 8 + stopbit 1 ))
+	ret = ((10 + cRecvSize) * 10) / throughput_sec;
 	return ret;
 }
-
 
 
