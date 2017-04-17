@@ -81,6 +81,7 @@ int main(int argc, char **argv)
 	int qret=0;
 	int qbaud=EASEL_ES920_BAUD_115200;
 	int qslep=EASEL_ES920_SLEEP_OFF;
+	//int qslep=EASEL_ES920_SLEEP_INTERRUPT_WAKEUP;
 	int qsleptm=50;
 	int qpwr=13;
 	int qcnt=100;
@@ -456,6 +457,7 @@ int main(int argc, char **argv)
 
 	// 初回の受信側の準備待ち
 	int count = 0;
+	int sleep_cnt = 0;
 
 	while(sig_cnt == 0){
 		//printf("Debug 1\n");
@@ -464,44 +466,62 @@ int main(int argc, char **argv)
 			break;
 		}
 
-		//printf("Debug 2\n");
-		//DATA FROM EASEL to
-		memset(cRecv,'\0',sizeof(cRecv));
-		iRet = RecvTelegram(cRecv, &rx_pwr, &src_id, &src_addr);
-		//printf("Debug 3\n");
-		if(iRet > 0)
+		if(qslep == EASEL_ES920_SLEEP_INTERRUPT_WAKEUP)
 		{
+			if(sleep_cnt % 2 == 0)
+			{
+				system("sudo ./onoff.sh 0");
+				printf("Sleep Mode ON\n");
+			}
+			else
+			{
+				system("sudo ./onoff.sh 1");
+				printf("Sleep Mode OFF\n");
+			}
+			sleep(3);
+			sleep_cnt++;
+		}
+		else
+		{
+			//printf("Debug 2\n");
+			//DATA FROM EASEL to
+			memset(cRecv,'\0',sizeof(cRecv));
+			iRet = RecvTelegram(cRecv, &rx_pwr, &src_id, &src_addr);
+			//printf("Debug 3\n");
+			if(iRet > 0)
+			{
 
-			// 受信データから不要な改行を除去
-			easel_ES920_newline_remove(cRecv);
-			// 受信データから不要なチェックサムを除去
-			easel_ES920_checksum_remove(cRecv);
+				// 受信データから不要な改行を除去
+				easel_ES920_newline_remove(cRecv);
+				// 受信データから不要なチェックサムを除去
+				easel_ES920_checksum_remove(cRecv);
 
-			printf("send back receive data\n");
+				printf("send back receive data\n");
 
-			cMsgSize = strlen(cRecv);
-			printf("send size : %d \n", cMsgSize);
+				cMsgSize = strlen(cRecv);
+				printf("send size : %d \n", cMsgSize);
 
-			if( cMsgSize >= 1 ){
-				iChksum = Serial_SumCheck(cRecv, cMsgSize, 1);
+				if( cMsgSize >= 1 ){
+					iChksum = Serial_SumCheck(cRecv, cMsgSize, 1);
 
-				sprintf(cMsg, "%s%03d",cRecv, iChksum);
-				cMsgSize += 3;
-			}else{
-				strcpy(cMsg, cRecv);
+					sprintf(cMsg, "%s%03d",cRecv, iChksum);
+					cMsgSize += 3;
+				}else{
+					strcpy(cMsg, cRecv);
+				}
+
+				printf("Data : %s \r\n", cMsg);
+				// 受信データを折り返し送信
+				SendTeregram(cMsg,0, 0);
+
+				memset(cMsg, 0x00, cMsgSize );
 			}
 
-			printf("Data : %s \r\n", cMsg);
-			// 受信データを折り返し送信
-			SendTeregram(cMsg,0, 0);
-
-			memset(cMsg, 0x00, cMsgSize );
+			//usleep(500000);
+			usleep(250000);
+			//usleep(100000);
+			//sleep(1);
 		}
-
-		//usleep(500000);
-		usleep(250000);
-		//usleep(100000);
-		//sleep(1);
 	}
 
 	easel_ES920_exit();

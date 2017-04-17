@@ -29,4 +29,5 @@ case $1 in
  ;;
  14) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=13 -qsf=12 -qbw=125k -qc=15
  ;;
+ 17) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=13 -qsf=12 -qbw=125k -qc=15 -qsl=3
 esac
