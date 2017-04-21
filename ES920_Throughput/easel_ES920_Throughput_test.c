@@ -85,6 +85,7 @@ int main(int argc, char **argv)
 	int qret=0;
 	int qbaud=EASEL_ES920_BAUD_115200;
 	int qslep=EASEL_ES920_SLEEP_OFF;
+	//int qslep=EASEL_ES920_SLEEP_INTERRUPT_WAKEUP;
 	int qsleptm=50;
 	int qpwr=13;
 	int qcnt=100;

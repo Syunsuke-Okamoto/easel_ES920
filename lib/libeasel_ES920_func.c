@@ -933,12 +933,14 @@ int SendTeregram(unsigned char *buf, unsigned int dst_id, unsigned int dst_addr 
 	}
 
 	count = 0;
-	total_index = (tx_length / 44) + 1;
+	//total_index = (tx_length / 44) + 1;
+	total_index = (tx_length / 48) + 1;
 	current_index = 1;
 
 	do {
 		if( current_index < total_index  ){
-			length = 44;
+			//length = 44;
+			length = 48;
 		}else{
 			length = (tx_length - count);
 		}
