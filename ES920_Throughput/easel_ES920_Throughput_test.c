@@ -129,8 +129,8 @@ int main(int argc, char **argv)
 	// シリアル通信ウェイト時間
 	int waitMsecTime = 0;
 
-	// 受信時リトライ回数
-	int recv_retry_cnt = 100;
+	// 受信時リトライ時間
+	int qrcnt = 10;
 
 	//if( argc >= 2 ){
 
@@ -167,6 +167,7 @@ int main(int argc, char **argv)
 					printf("    -qst=[sleeptime]\n");
 					printf("    -qpwr=[power]\n");
 					printf("    -qcnt=[sendcount]\n");
+					printf("    -qrcnt=[recv timeout(sec)]\n");
 					printf("Usage:\n");
 					printf("Antenna type internal [0] external [1]\n");
 					printf("infinite loop [-1]\n");
@@ -306,6 +307,12 @@ int main(int argc, char **argv)
 							ret = -1;
 						}
 					}
+
+					if(strncmp(argv[i], "-qrcnt=", strlen("-qrcnt=")) == 0){
+						if(sscanf(argv[i], "-qrcnt=%d", &qrcnt) != 1){
+							ret = -1;
+						}
+					}
 				}
 
 				i++;
@@ -396,6 +403,9 @@ int main(int argc, char **argv)
 
 	//Debug add
 	//return 0;
+	//受信リトライの値を秒から回数に修正
+	//retry回数100回の時、10秒待つので
+	qrcnt = qrcnt * 10;
 
 	//Initialization
 	iRet = easel_ES920_init(DevName1,ibaudrate);
@@ -522,17 +532,10 @@ int main(int argc, char **argv)
 		start_time = get_dtime();
 		iSendRet = SendTeregram(cMsg,0, 0);
 
-		//sleep(1);
-		//usleep(100000);
-
 		int readcnt = 0;
 
-		while(readcnt < recv_retry_cnt)
+		while(readcnt < qrcnt && sig_cnt == 0)
 		{
-			//usleep(500000);
-			//usleep(250000);
-			//usleep(100000);
-
 			memset(cRecv,'\0',sizeof(cRecv));
 			iRecvRet = RecvTelegram(cRecv, &rx_pwr, &src_id, &src_addr);
 
@@ -548,18 +551,10 @@ int main(int argc, char **argv)
 			else
 			{
 				readcnt++;
-				//printf("iRecvRet = %d, sendsize = %d\n",iRecvRet,(strlen(cMsg) + 14));
-				//printf("receive retry %d cnt\n",readcnt);
 			}
-
-			//usleep(300000);
-			//usleep(200000); //OK 7
-			//usleep(250000); //OK 8
-			//usleep(100000);
-			//sleep(1);
 		}
 
-		if(readcnt == recv_retry_cnt)
+		if(readcnt == qrcnt)
 		{
 			printf("receive error\n");
 			recvng_cnt++;
