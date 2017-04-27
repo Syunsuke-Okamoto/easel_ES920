@@ -1,6 +1,8 @@
 #!/bin/sh
 
 case $1 in
+ 0) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=13 -qsf=12 -qbw=125k -qc=8 -qcnt=$2
+ ;;
  1) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=13 -qsf=12 -qbw=125k -qc=8 
  ;;
  2) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=10 -qsf=12 -qbw=125k -qc=8 

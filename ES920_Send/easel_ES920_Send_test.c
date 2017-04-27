@@ -81,7 +81,7 @@ int main(int argc, char **argv)
 	//int qslep=EASEL_ES920_SLEEP_INTERRUPT_WAKEUP;
 	int qsleptm=50;
 	int qpwr=13;
-	int qcnt=100;
+	unsigned int qcnt=100;
 
 	// 920MHz Setting Int
 	int inode=EASEL_ES920_NODE_ENDDEVICE;
@@ -360,7 +360,7 @@ int main(int argc, char **argv)
 	if(qpwr < -4 || qpwr > 13) ret = -1;
 	//printf("Debug power chk = %d\n",ret);
 	// count
-	if(qcnt < 1 || qcnt > 9999) ret = -1;
+	if(qcnt < 1 || qcnt > 65535) ret = -1;
 	//printf("Debug count chk = %d\n",ret);
 
 	if(ret){

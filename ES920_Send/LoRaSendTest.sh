@@ -3,6 +3,8 @@
 sleep 10
 
 case $1 in
+ 0) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=13 -qsf=7 -qbw=125k -qc=1 -qcnt=$2
+ ;;
  1) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=13 -qsf=12 -qbw=125k -qc=8
  ;;
  2) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=10 -qsf=12 -qbw=125k -qc=8

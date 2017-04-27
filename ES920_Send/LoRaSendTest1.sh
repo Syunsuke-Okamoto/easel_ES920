@@ -31,4 +31,22 @@ case $1 in
  ;;
  14) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=13 -qsf=12 -qbw=125k -qc=15 -qcnt=10 -d0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678
  ;;
+ 23) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=-4 -qsf=12 -qbw=125k -qc=8 -qcnt=10 -d0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678
+ ;;
+ 24) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=-4 -qsf=7 -qbw=125k -qc=8 -qcnt=10 -d0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678
+ ;;
+ 25) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=-4 -qsf=8 -dbw=125k -qc=8 -qcnt=10 -d0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678
+ ;;
+ 26) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=-4 -qsf=9 -dbw=125k -qc=8 -qcnt=10 -d0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678
+ ;;
+ 27) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=-4 -qsf=10 -dbw=125k -qc=8 -qcnt=10 -d0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678
+ ;;
+ 28) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=-4 -qsf=11 -dbw=125k -qc=8 -qcnt=10 -d0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678
+ ;;
+ 30) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=-4 -qsf=11 -dbw=62.5k -qc=8 -qcnt=10 -d0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678
+ ;;
+ 31) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=-4 -qsf=11 -dbw=250k -qc=4 -qcnt=10 -d0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678
+ ;;
+ 32) /home/conprosys/niimi/ES920_Send/ES920SendTest -qpwr=-4 -qsf=11 -dbw=500k -qc=3 -qcnt=10 -d0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678
+ ;;
 esac
