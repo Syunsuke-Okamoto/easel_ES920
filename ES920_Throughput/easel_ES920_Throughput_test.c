@@ -130,6 +130,7 @@ int main(int argc, char **argv)
 	int waitMsecTime = 0;
 
 	// 受信時リトライ時間
+	// qrcnt=10の時、約10秒
 	int qrcnt = 10;
 
 	//if( argc >= 2 ){
@@ -403,9 +404,7 @@ int main(int argc, char **argv)
 
 	//Debug add
 	//return 0;
-	//受信リトライの値を秒から回数に修正
-	//retry回数100回の時、10秒待つので
-	qrcnt = qrcnt * 10;
+	qrcnt = qrcnt * 100;
 
 	//Initialization
 	iRet = easel_ES920_init(DevName1,ibaudrate);
@@ -534,7 +533,7 @@ int main(int argc, char **argv)
 
 		int readcnt = 0;
 
-		while(readcnt < qrcnt && sig_cnt == 0)
+/*		while(readcnt < qrcnt && sig_cnt == 0)
 		{
 			memset(cRecv,'\0',sizeof(cRecv));
 			iRecvRet = RecvTelegram(cRecv, &rx_pwr, &src_id, &src_addr);
@@ -552,11 +551,30 @@ int main(int argc, char **argv)
 			{
 				readcnt++;
 			}
+		}*/
+
+		iRecvRet = -1;
+
+		while(readcnt < qrcnt && sig_cnt == 0)
+		{
+			iRecvRet = SendChkAckCmd();
+			//printf("Debug Ack Code = %d\n",iRecvRet);
+
+			if(iRecvRet == 0 )
+			{
+				end_time = get_dtime();
+				printf("receive Ack command\n");
+				break;
+			}
+			else
+			{
+				readcnt++;
+			}
 		}
 
 		if(readcnt == qrcnt)
 		{
-			printf("receive error\n");
+			printf("receive Ack error\n");
 			recvng_cnt++;
 		}
 
@@ -567,14 +585,14 @@ int main(int argc, char **argv)
 		memset(cRecv,'\0',sizeof(cRecv));
 		strcpy(cRecv,tmp);*/
 
-		if(iRecvRet > 0)
+		if(iRecvRet == 0)
 		{
 			// 受信データから不要な改行を除去
-			easel_ES920_newline_remove(cRecv);
-			cRecvSize = strlen(cRecv);
+			//easel_ES920_newline_remove(cRecv);
+			//cRecvSize = strlen(cRecv);
 
 			// 受信成功後の計算処理
-			end_time = get_dtime();
+			//end_time = get_dtime();
 			throughput_sec = (end_time - start_time);
 			throughnum[count] = throughput_sec;
 			sum += throughnum[count];
@@ -583,20 +601,22 @@ int main(int argc, char **argv)
 			throughnum_bps[count] = throughput_bps;
 			sum_bps += throughnum_bps[count];
 
-			if( cRecvSize > 3 ){
+			// スループット測定を折り返し受信からAck受信に変更
+/*			if( cRecvSize > 3 ){
 				iRecvChksum = Serial_SumCheck( &cRecv[0], cRecvSize-3 , 1 );
 				iSendChksum = iChksum;
 
 				printf("check sum code <send %x recv %x > \n",iSendChksum, iRecvChksum );
 
-				if( iSendChksum == iRecvChksum){
+				// チェックサム処理はモジュール側でCRCチェック及び異常データ破棄を行っているので削除
+				if( iSendChksum == iRecvChksum){*/
 					strcpy(test_ret,"OK");
 					printf("OK\n");
 					ok_cnt++;
 					// スループットの表示
 					printf("throughput is %06.2f[sec]\n",throughput_sec);
 					printf("throughput is %06.2f[bps]\n",throughput_bps);
-				}else{
+/*				}else{
 					strcpy(test_ret,"NG");
 					printf("NG\n");
 					ng_cnt++;
@@ -605,10 +625,18 @@ int main(int argc, char **argv)
 			}else{
 				strcpy(test_ret,"NG");
 				printf("NG\n");
-			}
+			}*/
 
-			easel_ES920_csv_write(fdate, rx_pwr, cRecv, test_ret, qch, ibw, qsf, throughput_sec, throughput_bps);
+			//easel_ES920_csv_write(fdate, rx_pwr, cRecv, test_ret, qch, ibw, qsf, throughput_sec, throughput_bps);
 		}
+		else
+		{
+			strcpy(test_ret,"NG");
+			printf("NG\n");
+			ng_cnt++;
+		}
+
+		easel_ES920_csv_write_lite(fdate, cMsg, test_ret, qch, ibw, qsf, throughput_sec, throughput_bps);
 
 		count++;
 		memset(test_ret,0x00, strlen(test_ret));
@@ -702,6 +730,55 @@ int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int
 	}
 
 	fprintf(fp, "%s,%d,%s,%.2f,%.2f,%s\n", date,rx_pwr,data,throughput_sec,throughput_bps,ret);
+	fclose(fp );
+
+	printf("%s file write finished\n", fname);
+	return 0;
+}
+
+int easel_ES920_csv_write_lite(char *fdate, char *data, char ret[], int qch, int ibw, int qsf,
+		 	 	 	 	 	 double throughput_sec, double throughput_bps)
+{
+	FILE *fp;
+	struct tm *tm;
+
+	char date[64];
+	char *fpwd = "/home/conprosys/niimi/ES920_Throughput/";
+	char fch[2];
+	char fbw[2];
+	char fsf[2];
+	sprintf(fch,"%d",qch);
+	sprintf(fsf,"%d",qsf);
+
+	switch (ibw)	{
+			case 3 :
+			sprintf(fbw,"%d",62);
+			break;
+		case 4 :
+			sprintf(fbw,"%d",125);
+			break;
+		case 5 :
+			sprintf(fbw,"%d",250);
+			break;
+		case 6 :
+			sprintf(fbw,"%d",500);
+			break;
+	}
+
+	char fname[256];
+
+	time_t t = time(NULL);
+	tm = localtime(&t);
+	strftime(date, sizeof(date), "%m/%d %a %H:%M:%S", tm);
+	sprintf(fname,"%s%s_%s_%s_%s",fpwd,fch,fbw,fsf,fdate);
+
+	fp = fopen(fname, "a");
+	if(fp == NULL){
+		printf("%s file open error\n", fname);
+		return -1;
+	}
+
+	fprintf(fp, "%s,%s,%.2f,%.2f,%s\n", date,data,throughput_sec,throughput_bps,ret);
 	fclose(fp );
 
 	printf("%s file write finished\n", fname);

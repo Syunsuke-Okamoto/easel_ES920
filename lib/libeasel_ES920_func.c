@@ -1529,3 +1529,26 @@ int easel_ES920_exit(void)
 
 	return 0;
 }
+
+int SendChkAckCmd(void)
+{
+
+	unsigned char res[8]={0};
+	int iRet = -1;
+	int cnt = 0;
+	int iTempLen = 0, bef_iTempLen = 0;
+	int resSize = strlen((char *)res);
+
+	for(cnt=0;cnt < 8;cnt++){
+		res[cnt] = Serial_GetChar(param.SerialPort);
+	}
+
+	usleep( param.SerialWait );
+
+	if( memcmp( &res[0], "OK" , 2 ) == 0 ){
+		iRet = 0;
+	}
+
+	DbgPrint("<RecvCommandAck> Port %x, res %s, ret %d\n",param.SerialPort,res,iRet);
+	return iRet;
+}

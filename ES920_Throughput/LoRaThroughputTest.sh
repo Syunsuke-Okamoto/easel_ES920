@@ -31,5 +31,22 @@ case $1 in
  ;;
  14) /home/conprosys/niimi/ES920_Throughput/ES920ThroughputTest -qpwr=13 -qsf=12 -qbw=125k -qc=15 -qcnt=$cnt
  ;;
- 99) /home/conprosys/niimi/ES920_Throughput/ES920ThroughputTest -qpwr=13 -qsf=12 -qbw=125k -qc=8 -qcnt=$cnt -qrcnt=100
+ 23) /home/conprosys/niimi/ES920_Throughput/ES920ThroughputTest -qpwr=-4 -qsf=12 -qbw=125k -qc=15 -qcnt=$cnt
+ ;;
+ 24) /home/conprosys/niimi/ES920_Throughput/ES920ThroughputTest -qpwr=-4 -qsf=7 -qbw=125k -qc=15 -qcnt=$cnt
+ ;;
+ 25) /home/conprosys/niimi/ES920_Throughput/ES920ThroughputTest -qpwr=-4 -qsf=8 -qbw=125k -qc=15 -qcnt=$cnt
+ ;;
+ 26) /home/conprosys/niimi/ES920_Throughput/ES920ThroughputTest -qpwr=-4 -qsf=9 -qbw=125k -qc=15 -qcnt=$cnt
+ ;;
+ 27) /home/conprosys/niimi/ES920_Throughput/ES920ThroughputTest -qpwr=-4 -qsf=10 -qbw=125k -qc=15 -qcnt=$cnt
+ ;;
+ 28) /home/conprosys/niimi/ES920_Throughput/ES920ThroughputTest -qpwr=-4 -qsf=11 -qbw=125k -qc=15 -qcnt=$cnt
+ ;;
+ 30) /home/conprosys/niimi/ES920_Throughput/ES920ThroughputTest -qpwr=-4 -qsf=11 -qbw=62.5k -qc=15 -qcnt=$cnt
+ ;;
+ 31) /home/conprosys/niimi/ES920_Throughput/ES920ThroughputTest -qpwr=-4 -qsf=11 -qbw=250k -qc=15 -qcnt=$cnt
+ ;;
+ 32) /home/conprosys/niimi/ES920_Throughput/ES920ThroughputTest -qpwr=-4 -qsf=11 -qbw=500k -qc=15 -qcnt=$cnt
+ ;;
 esac

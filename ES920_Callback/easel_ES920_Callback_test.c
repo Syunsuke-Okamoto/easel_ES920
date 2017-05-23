@@ -512,7 +512,8 @@ int main(int argc, char **argv)
 
 				printf("Data : %s \r\n", cMsg);
 				// 受信データを折り返し送信
-				SendTeregram(cMsg,0, 0);
+				//SendTeregram(cMsg,0, 0);
+				easel_ES920_csv_write(fdate, rx_pwr, cRecv, test_ret, qch, ibw, qsf);
 
 				memset(cMsg, 0x00, cMsgSize );
 			}
@@ -567,7 +568,7 @@ int easel_ES920_csv_write(char *fdate, short rx_pwr, char *data, char ret[], int
 	struct tm *tm;
 
 	char date[64];
-	char *fpwd = "/home/conprosys/niimi/ES920_Recv/";
+	char *fpwd = "/home/conprosys/niimi/ES920_Callback/";
 	char fch[2];
 	char fbw[2];
 	char fsf[2];
