@@ -455,6 +455,12 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	//CSVの時刻を設定
+	struct tm *tm;
+	time_t t = time(NULL);
+	tm = localtime(&t);
+	strftime(fdate,sizeof(fdate),"%Y%m%d%H%M.csv",tm);
+
 	// 初回の受信側の準備待ち
 	int count = 0;
 	int sleep_cnt = 0;
@@ -513,6 +519,8 @@ int main(int argc, char **argv)
 				printf("Data : %s \r\n", cMsg);
 				// 受信データを折り返し送信
 				//SendTeregram(cMsg,0, 0);
+
+				strcpy(test_ret,"OK");
 				easel_ES920_csv_write(fdate, rx_pwr, cRecv, test_ret, qch, ibw, qsf);
 
 				memset(cMsg, 0x00, cMsgSize );

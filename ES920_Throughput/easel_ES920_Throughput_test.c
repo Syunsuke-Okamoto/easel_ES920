@@ -591,6 +591,9 @@ int main(int argc, char **argv)
 			//easel_ES920_newline_remove(cRecv);
 			//cRecvSize = strlen(cRecv);
 
+			//送信データサイズの取得
+			cRecvSize = strlen(cMsg);
+
 			// 受信成功後の計算処理
 			//end_time = get_dtime();
 			throughput_sec = (end_time - start_time);
