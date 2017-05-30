@@ -133,6 +133,16 @@ int main(int argc, char **argv)
 	// qrcnt=10の時、約10秒
 	int qrcnt = 10;
 
+	// CSVの時刻を設定
+	struct tm *tm;
+	time_t t = time(NULL);
+	tm = localtime(&t);
+	strftime(fdate,sizeof(fdate),"%Y%m%d%H%M.csv",tm);
+
+	// Debug Msg
+	char Debug_OK[4] = "OK";
+	char Debug_NG[4] = "NG";
+
 	//if( argc >= 2 ){
 
 	//	strcpy( DevName1, argv[1] );
@@ -410,15 +420,25 @@ int main(int argc, char **argv)
 	iRet = easel_ES920_init(DevName1,ibaudrate);
 	if( iRet ){
 		printf("DevName1: open error\n");
+		easel_ES920_Debug_write(fdate, 0, Debug_NG, qch, ibw, qsf);
 		return 1;
+	}
+	else
+	{
+		easel_ES920_Debug_write(fdate, 0, Debug_OK, qch, ibw, qsf);
 	}
 
 	// 設定モード要求
 	iRet = SettingRequest();
 	if(iRet){
 		printf("CAN'T MOVE ON CONFIGURATION MODE\n");
+		easel_ES920_Debug_write(fdate, 1, Debug_NG, qch, ibw, qsf);
 		iRet = easel_ES920_exit();
-		return 0;
+		return 1;
+	}
+	else
+	{
+		easel_ES920_Debug_write(fdate, 1, Debug_OK, qch, ibw, qsf);
 	}
 
 	// String→Int変換
@@ -461,7 +481,12 @@ int main(int argc, char **argv)
 	if(iRet){
 		printf("CAN'T SET WIRELESS DATA\n");
 		iRet = easel_ES920_exit();
-		return 0;
+		easel_ES920_Debug_write(fdate, 2, Debug_NG, qch, ibw, qsf);
+		return 1;
+	}
+	else
+	{
+		easel_ES920_Debug_write(fdate, 2, Debug_OK, qch, ibw, qsf);
 	}
 
 	// 動作モード要求
@@ -469,7 +494,12 @@ int main(int argc, char **argv)
 	if(iRet){
 		printf("CAN'T MOVE ON OPERATION MODE\n");
 		iRet = easel_ES920_exit();
-		return 0;
+		easel_ES920_Debug_write(fdate, 3, Debug_NG, qch, ibw, qsf);
+		return 1;
+	}
+	else
+	{
+		easel_ES920_Debug_write(fdate, 3, Debug_OK, qch, ibw, qsf);
 	}
 
 	// シリアル通信のウェイト時間を定義
@@ -487,10 +517,10 @@ int main(int argc, char **argv)
 	}
 
 	//CSVの時刻を設定
-	struct tm *tm;
-	time_t t = time(NULL);
-	tm = localtime(&t);
-	strftime(fdate,sizeof(fdate),"%Y%m%d%H%M.csv",tm);
+	//struct tm *tm;
+	//time_t t = time(NULL);
+	//tm = localtime(&t);
+	//strftime(fdate,sizeof(fdate),"%Y%m%d%H%M.csv",tm);
 
 	// 初回の受信側の準備待ち
 	int count = 0;
@@ -564,6 +594,7 @@ int main(int argc, char **argv)
 			{
 				end_time = get_dtime();
 				printf("receive Ack command\n");
+				easel_ES920_Debug_write(fdate, 4, Debug_OK, qch, ibw, qsf);
 				break;
 			}
 			else
@@ -575,6 +606,7 @@ int main(int argc, char **argv)
 		if(readcnt == qrcnt)
 		{
 			printf("receive Ack error\n");
+			easel_ES920_Debug_write(fdate, 4, Debug_NG, qch, ibw, qsf);
 			recvng_cnt++;
 		}
 
@@ -631,11 +663,13 @@ int main(int argc, char **argv)
 			}*/
 
 			//easel_ES920_csv_write(fdate, rx_pwr, cRecv, test_ret, qch, ibw, qsf, throughput_sec, throughput_bps);
+					easel_ES920_Debug_write(fdate, 5, Debug_OK, qch, ibw, qsf);
 		}
 		else
 		{
 			strcpy(test_ret,"NG");
 			printf("NG\n");
+			easel_ES920_Debug_write(fdate, 5, Debug_NG, qch, ibw, qsf);
 			ng_cnt++;
 		}
 
@@ -782,6 +816,55 @@ int easel_ES920_csv_write_lite(char *fdate, char *data, char ret[], int qch, int
 	}
 
 	fprintf(fp, "%s,%s,%.2f,%.2f,%s\n", date,data,throughput_sec,throughput_bps,ret);
+	fclose(fp );
+
+	printf("%s file write finished\n", fname);
+	return 0;
+}
+
+
+int easel_ES920_Debug_write(char *fdate, int num, char ret[], int qch, int ibw, int qsf)
+{
+	FILE *fp;
+	struct tm *tm;
+
+	char date[64];
+	char *fpwd = "/home/conprosys/niimi/ES920_Throughput/";
+	char fch[2];
+	char fbw[2];
+	char fsf[2];
+	sprintf(fch,"%d",qch);
+	sprintf(fsf,"%d",qsf);
+
+	switch (ibw)	{
+			case 3 :
+			sprintf(fbw,"%d",62);
+			break;
+		case 4 :
+			sprintf(fbw,"%d",125);
+			break;
+		case 5 :
+			sprintf(fbw,"%d",250);
+			break;
+		case 6 :
+			sprintf(fbw,"%d",500);
+			break;
+	}
+
+	char fname[256];
+
+	time_t t = time(NULL);
+	tm = localtime(&t);
+	strftime(date, sizeof(date), "%m/%d %a %H:%M:%S", tm);
+	sprintf(fname,"%s%s_%s_%s_%s",fpwd,fch,fbw,fsf,fdate);
+
+	fp = fopen(fname, "a");
+	if(fp == NULL){
+		printf("%s file open error\n", fname);
+		return -1;
+	}
+
+	fprintf(fp, "%s,%d,%s\n", date,num,ret);
 	fclose(fp );
 
 	printf("%s file write finished\n", fname);
