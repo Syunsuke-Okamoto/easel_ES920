@@ -49,4 +49,22 @@ case $1 in
  ;;
  32) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=-4 -qsf=11 -qbw=500k -qc=15
  ;;
+ 33) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=-4 -qsf=12 -qbw=125k -qc=8
+ ;;
+ 34) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=-4 -qsf=7 -qbw=125k -qc=8
+ ;;
+ 35) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=-4 -qsf=8 -qbw=125k -qc=8
+ ;;
+ 36) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=-4 -qsf=9 -qbw=125k -qc=8
+ ;;
+ 37) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=-4 -qsf=10 -qbw=125k -qc=8
+ ;;
+ 38) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=-4 -qsf=11 -qbw=125k -qc=8
+ ;;
+ 40) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=-4 -qsf=11 -qbw=62.5k -qc=8
+ ;;
+ 41) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=-4 -qsf=11 -qbw=250k -qc=8
+ ;;
+ 42) /home/conprosys/niimi/ES920_Callback/ES920CallbackTest -qpwr=-4 -qsf=11 -qbw=500k -qc=8
+ ;;
 esac

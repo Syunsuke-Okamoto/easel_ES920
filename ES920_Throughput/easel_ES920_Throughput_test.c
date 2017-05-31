@@ -532,14 +532,14 @@ int main(int argc, char **argv)
 	double throughnum_bps[qcnt];
 	double sum_bps, ave_bps;
 
-	while(sig_cnt == 0){
+	while(sig_cnt == 0 && count < qcnt){
 
 		iRecvRet = 0;
 
-		if(count == qcnt)
-		{
-			break;
-		}
+		//if(count == qcnt)
+		//{
+		//	break;
+		//}
 		
 		sleep(1);
 		printf("Current count = %d, Set count = %d\n", count,qcnt);
@@ -560,6 +560,7 @@ int main(int argc, char **argv)
 
 		start_time = get_dtime();
 		iSendRet = SendTeregram(cMsg,0, 0);
+		count++;
 
 		int readcnt = 0;
 
@@ -675,7 +676,7 @@ int main(int argc, char **argv)
 
 		easel_ES920_csv_write_lite(fdate, cMsg, test_ret, qch, ibw, qsf, throughput_sec, throughput_bps);
 
-		count++;
+		//count++;
 		memset(test_ret,0x00, strlen(test_ret));
 		memset(cMsg, 0x00, cMsgSize );
 		sleep(4);
