@@ -796,10 +796,11 @@ int easel_ES920_set_outpw(int command)
 	@param ver : モジュールのバージョン
 	@return 成功:  0 失敗 :
 **/
-/*
-int easel_es920_version(int command, int *ver)
-*/
 
+int easel_es920_version(void)
+{
+	return _easel_es920_set_parameter_int( "v", 0, NULL );
+}
 
 /**
 	@~English
@@ -1433,6 +1434,10 @@ int SendCommand(unsigned char buf[], int command )
 	}
 	else{
 		switch( buf[0] ){
+			case 'v':
+				sprintf((char *)Data,"%s\r\n",buf);
+				DbgPrint("version check\n");
+				break;
 			case 'x':
 			case 'w':
 			case 'z':
@@ -1493,14 +1498,15 @@ int RecvCommandAck(void)
 	//	DbgPrint("Received Error.\r\n");
 	//	iRet = -1;
 	//}
-	if( memcmp( &res[0], "NG" , 2 ) == 0 ){
+	if( memcmp( &res[0], "VER" , 3 ) == 0 ){
+			// get version code
+			printf("ES920LR %s\n",res);
+	}
+	else if( memcmp( &res[0], "NG" , 2 ) == 0 ){
 		// get error code
 		for( cnt = 0; cnt < 3; cnt ++ ){
 			iRet += ( res[cnt + 3] - 0x30) * pow(10.0, (2 - cnt) );
 		} //必ず数字は3桁 ( NG 001とか)
-	}
-	else {
-		
 	}
 
 	DbgPrint("<RecvCommandAck> Port %x, res %s, ret %d\n",param.SerialPort,res,iRet);

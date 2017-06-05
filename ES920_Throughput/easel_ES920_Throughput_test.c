@@ -441,6 +441,9 @@ int main(int argc, char **argv)
 		easel_ES920_Debug_write(fdate, 1, Debug_OK, qch, ibw, qsf);
 	}
 
+	// Version表示
+	easel_es920_version();
+
 	// String→Int変換
 	// ノード種別設定
 	if( strcmp(qnode,"master") == 0 ||
@@ -868,7 +871,7 @@ int easel_ES920_Debug_write(char *fdate, int num, char ret[], int qch, int ibw, 
 	fprintf(fp, "%s,%d,%s\n", date,num,ret);
 	fclose(fp );
 
-	printf("%s file write finished\n", fname);
+	//printf("%s file write finished\n", fname);
 	return 0;
 }
 
