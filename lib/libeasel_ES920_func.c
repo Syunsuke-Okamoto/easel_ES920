@@ -1477,7 +1477,6 @@ int SendCommand(unsigned char buf[], int command )
 
 int RecvCommandAck(void)
 {
-
 	unsigned char res[8]={0};
 	int iRet = 0;
 	int cnt = 0;
@@ -1492,7 +1491,7 @@ int RecvCommandAck(void)
 	}
 
 	//divide response  
-//	//if( res[0] == 255 ){
+	//if( res[0] == 255 ){
 		usleep( param.SerialWait );
 		// received error
 	//	DbgPrint("Received Error.\r\n");
@@ -1538,7 +1537,6 @@ int easel_ES920_exit(void)
 
 int SendChkAckCmd(void)
 {
-
 	unsigned char res[8]={0};
 	int iRet = -1;
 	int cnt = 0;
@@ -1553,6 +1551,12 @@ int SendChkAckCmd(void)
 
 	if( memcmp( &res[0], "OK" , 2 ) == 0 ){
 		iRet = 0;
+	}
+	else if( memcmp( &res[0], "NG" , 2 ) == 0 ){
+		// get error code
+		for( cnt = 0; cnt < 3; cnt ++ ){
+			iRet += ( res[cnt + 3] - 0x30) * pow(10.0, (2 - cnt) );
+		} //必ず数字は3桁 ( NG 001とか)
 	}
 
 	DbgPrint("<RecvCommandAck> Port %x, res %s, ret %d\n",param.SerialPort,res,iRet);

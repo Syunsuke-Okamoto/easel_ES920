@@ -125,6 +125,7 @@ int main(int argc, char **argv)
 	int ng_cnt = 0;
 	int total_cnt = 0;
 	int recvng_cnt = 0;
+	int module_ack_error_cnt = 0;
 
 	// シリアル通信ウェイト時間
 	int waitMsecTime = 0;
@@ -359,6 +360,7 @@ int main(int argc, char **argv)
 			printf("    -qst=[sleeptime]\n");
 			printf("    -qpwr=[power]\n");
 			printf("    -qcnt=[sendcount]\n");
+			printf("    -qrcnt=[timeout(sec)]\n");
 			printf("Usage:\n");
 			printf("Antenna type internal [0] external [1]\n");
 			printf("infinite loop [-1]\n");
@@ -519,12 +521,6 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	//CSVの時刻を設定
-	//struct tm *tm;
-	//time_t t = time(NULL);
-	//tm = localtime(&t);
-	//strftime(fdate,sizeof(fdate),"%Y%m%d%H%M.csv",tm);
-
 	// 初回の受信側の準備待ち
 	int count = 0;
 
@@ -538,11 +534,6 @@ int main(int argc, char **argv)
 	while(sig_cnt == 0 && count < qcnt){
 
 		iRecvRet = 0;
-
-		//if(count == qcnt)
-		//{
-		//	break;
-		//}
 		
 		sleep(1);
 		printf("Current count = %d, Set count = %d\n", count,qcnt);
@@ -592,22 +583,31 @@ int main(int argc, char **argv)
 		while(readcnt < qrcnt && sig_cnt == 0)
 		{
 			iRecvRet = SendChkAckCmd();
-			//printf("Debug Ack Code = %d\n",iRecvRet);
 
-			if(iRecvRet == 0 )
+			if(iRecvRet == 0)
 			{
 				end_time = get_dtime();
 				printf("receive Ack command\n");
 				easel_ES920_Debug_write(fdate, 4, Debug_OK, qch, ibw, qsf);
 				break;
 			}
-			else
+			else if(iRecvRet != -1)
 			{
-				readcnt++;
+				if(qack == EASEL_ES920_ACK_OFF)
+				{
+					printf("ES920_Module Ack error\n");
+					easel_ES920_Debug_write_Ackoff(fdate, 4, Debug_NG, iRecvRet, qch, ibw, qsf);
+					readcnt = qrcnt;
+					module_ack_error_cnt++;
+				}
+				else
+				{
+					readcnt++;
+				}
 			}
 		}
 
-		if(readcnt == qrcnt)
+		if(readcnt == qrcnt && qack == EASEL_ES920_ACK_ON)
 		{
 			printf("receive Ack error\n");
 			easel_ES920_Debug_write(fdate, 4, Debug_NG, qch, ibw, qsf);
@@ -681,7 +681,7 @@ int main(int argc, char **argv)
 
 		//count++;
 		memset(test_ret,0x00, strlen(test_ret));
-		memset(cMsg, 0x00, cMsgSize );
+		memset(cMsg, 0x00, cMsgSize);
 		sleep(4);
 	}
 
@@ -693,7 +693,14 @@ int main(int argc, char **argv)
 	printf("TOTAL          CNT = %d\n",count);
 	printf("OK             CNT = %d\n",ok_cnt);
 	printf("NG             CNT = %d\n",ng_cnt);
-	printf("RECEIVE ERROR  CNT = %d\n",recvng_cnt);
+	if(qack == EASEL_ES920_ACK_ON)
+	{
+		printf("RECEIVE ERROR  CNT = %d\n",recvng_cnt);
+	}
+	else
+	{
+		printf("MODULE ACK ERROR  CNT = %d\n",recvng_cnt);
+	}
 	printf("AVERAGE THROUGHPUT = %06.2f[sec]\n",ave);
 	printf("                   = %06.2f[bps]\n",ave_bps);
 	printf("--------------------------------\n");
@@ -869,6 +876,54 @@ int easel_ES920_Debug_write(char *fdate, int num, char ret[], int qch, int ibw, 
 	}
 
 	fprintf(fp, "%s,%d,%s\n", date,num,ret);
+	fclose(fp );
+
+	//printf("%s file write finished\n", fname);
+	return 0;
+}
+
+int easel_ES920_Debug_write_Ackoff(char *fdate, int num, char ret[], int errcode, int qch, int ibw, int qsf)
+{
+	FILE *fp;
+	struct tm *tm;
+
+	char date[64];
+	char *fpwd = "/home/conprosys/niimi/ES920_Throughput/";
+	char fch[2];
+	char fbw[2];
+	char fsf[2];
+	sprintf(fch,"%d",qch);
+	sprintf(fsf,"%d",qsf);
+
+	switch (ibw)	{
+			case 3 :
+			sprintf(fbw,"%d",62);
+			break;
+		case 4 :
+			sprintf(fbw,"%d",125);
+			break;
+		case 5 :
+			sprintf(fbw,"%d",250);
+			break;
+		case 6 :
+			sprintf(fbw,"%d",500);
+			break;
+	}
+
+	char fname[256];
+
+	time_t t = time(NULL);
+	tm = localtime(&t);
+	strftime(date, sizeof(date), "%m/%d %a %H:%M:%S", tm);
+	sprintf(fname,"%s%s_%s_%s_%s",fpwd,fch,fbw,fsf,fdate);
+
+	fp = fopen(fname, "a");
+	if(fp == NULL){
+		printf("%s file open error\n", fname);
+		return -1;
+	}
+
+	fprintf(fp, "%s,%d,%s,%d\n", date,num,ret,errcode);
 	fclose(fp );
 
 	//printf("%s file write finished\n", fname);
