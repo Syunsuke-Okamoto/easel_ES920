@@ -41,12 +41,12 @@ typedef unsigned long DWORD,*LPDWORD;
 #define EASEL_ES920_BANDWIDTH_250K 5		///< BandWidth: 250kHz
 #define EASEL_ES920_BANDWIDTH_500K 6		///< BandWidth: 500kHz
 
-#define EASEL_ES920_SF7 7		///< Spreading Factor: 7
-#define EASEL_ES920_SF8 8		///< Spreading Factor: 8
-#define EASEL_ES920_SF9 9		///< Spreading Factor: 9
-#define EASEL_ES920_SF10 10		///< Spreading Factor: 10
-#define EASEL_ES920_SF11 11		///< Spreading Factor: 11
-#define EASEL_ES920_SF12 12   		///< Spreading Factor: 12
+#define EASEL_ES920_SPREADINGFACTOR_7 7		///< Spreading Factor: 7
+#define EASEL_ES920_SPREADINGFACTOR_8 8		///< Spreading Factor: 8
+#define EASEL_ES920_SPREADINGFACTOR_9 9		///< Spreading Factor: 9
+#define EASEL_ES920_SPREADINGFACTOR_10 10		///< Spreading Factor: 10
+#define EASEL_ES920_SPREADINGFACTOR_11 11		///< Spreading Factor: 11
+#define EASEL_ES920_SPREADINGFACTOR_12 12   		///< Spreading Factor: 12
 
 #define EASEL_ES920_ACK_ON  1		///< ACK : ON
 #define EASEL_ES920_ACK_OFF  2		///< ACK : OFF
@@ -77,7 +77,7 @@ typedef unsigned long DWORD,*LPDWORD;
 #define EASEL_ES920_SLEEP_TIMER_WAKEUP 2 	///< Sleep Mode:	Timer Wakeup
 #define EASEL_ES920_SLEEP_INTERRUPT_WAKEUP  3	///< Sleep Mode:	INT Wakeup
 
-#define EASEL_ES920_COMMUNICATION_ASCII	1	///<  ASCII
+#define EASEL_ES920_COMMUNICATION_ASCII 1	///<  ASCII
 #define EASEL_ES920_COMMUNICATION_BINARY	2	///<  Binary
 
 typedef struct _easel_received_temp_buffer{
@@ -172,7 +172,7 @@ extern int easel_ES920_set_serial_wait( int waitMsecTime );
 
 
 int SendTelegram(unsigned char *buf, unsigned int dst_id, unsigned int dst_addr );
-int RecvTelegram(unsigned char *buf, short *rx_pwr, unsigned short *src_id, unsigned short *src_addr );
+int RecvTelegram(unsigned char *buf, short *rx_pwr, int *src_id, int *src_addr );
 int RecvRS232C(unsigned char *buf);
 int SendRS232C(unsigned char *buf);
 
